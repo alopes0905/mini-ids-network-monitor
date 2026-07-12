@@ -1,0 +1,6 @@
+scapy
+pyyaml
+pytest
+pytest-cov
+typer
+rich
