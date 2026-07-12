@@ -56,13 +56,13 @@ The first complete version should add:
 
 ## Repository Status
 
-Current stage: Issue #2 development environment setup.
+Current stage: Issue #3 high-level architecture documentation.
 
 Implemented now:
 
 - Initial repository structure
 - README skeleton
-- Architecture placeholder
+- High-level architecture documentation
 - Threat model placeholder
 - Python package folder
 - Standard project folders
