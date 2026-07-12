@@ -4,7 +4,7 @@ This document will describe the high-level design of the Mini IDS / Network Secu
 
 ## Current Status
 
-Architecture placeholder only. No parser, engine, rules, CLI, logging, configuration, or reporting logic has been implemented yet.
+Architecture placeholder only. No parser, engine, rules, CLI, logging, configuration, or reporting logic has been implemented yet. The repository currently has the initial package structure, dependency list, and package import smoke test.
 
 ## Planned Data Flow
 
@@ -55,3 +55,7 @@ Planned responsibility: provide a clean command-line interface for running offli
 - Keep rules small, explicit, and testable.
 - Prefer clear data models over passing loosely shaped dictionaries everywhere.
 - Start with offline PCAP analysis before live capture.
+
+## Development Setup
+
+Development dependencies are listed in `requirements.txt`. Use a local virtual environment and run `python -m pytest` from the repository root to verify the current smoke test.

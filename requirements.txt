@@ -1,6 +1,6 @@
 scapy
-pyyaml
 pytest
 pytest-cov
+pyyaml
 typer
 rich

@@ -2,7 +2,7 @@
 
 Mini IDS is a defensive, passive, educational network security monitor written in Python. The project is intended to analyze offline PCAP files, extract packet metadata, detect simple suspicious behavior, and produce structured alerts and reports as it grows.
 
-This repository is at the initial scaffold stage. Packet parsing, detection logic, CLI commands, configuration loading, logging, and tests have not been implemented yet.
+This repository is in the setup stage. Packet parsing, detection logic, CLI commands, configuration loading, logging, and real feature tests have not been implemented yet.
 
 ## Project Vision
 
@@ -56,7 +56,7 @@ The first complete version should add:
 
 ## Repository Status
 
-Current stage: Issue #0 and Issue #1 scaffold.
+Current stage: Issue #2 development environment setup.
 
 Implemented now:
 
@@ -68,6 +68,7 @@ Implemented now:
 - Standard project folders
 - Python `.gitignore`
 - Initial `requirements.txt`
+- Basic package import smoke test
 - MIT license
 
 Not implemented yet:
@@ -77,7 +78,7 @@ Not implemented yet:
 - CLI logic
 - Configuration loading
 - Logging
-- Tests
+- Feature tests
 
 ## Project Structure
 
@@ -98,11 +99,46 @@ mini-ids-network-monitor/
 
 ## Setup
 
-Dependency installation will be finalized in the environment setup issue. The initial expected dependencies are listed in `requirements.txt`.
+Python 3.11 or newer is recommended.
+
+Create and activate a virtual environment:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+On Windows PowerShell:
+
+```powershell
+py -3 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+Install the initial development dependencies:
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+Verify that the package can be imported:
+
+```bash
+python -c "import mini_ids; print('ok')"
+```
+
+Run the current test suite:
+
+```bash
+python -m pytest
+```
+
+At this stage, the test suite only verifies that the package imports successfully.
 
 ## Usage
 
-Usage commands will be added when the CLI issue is implemented.
+Usage commands will be added when the CLI issue is implemented. The project does not yet analyze PCAP files.
 
 ## Documentation
 
