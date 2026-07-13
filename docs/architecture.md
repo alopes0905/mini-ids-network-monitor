@@ -10,10 +10,10 @@ Implemented so far:
 - Python dependency setup
 - Package import smoke test
 - Scope, threat model, and architecture documentation
+- `PacketInfo` packet metadata model
 
 Not implemented yet:
 
-- Packet models
 - Alert models
 - PCAP reader
 - Packet parser

@@ -2,7 +2,7 @@
 
 Mini IDS is a defensive, passive, educational network security monitor written in Python. The project is intended to analyze offline PCAP files, extract packet metadata, detect simple suspicious behavior, and produce structured alerts and reports as it grows.
 
-This repository is in the setup stage. Packet parsing, detection logic, CLI commands, configuration loading, logging, and real feature tests have not been implemented yet.
+This repository is in the early data-model stage. Packet parsing, detection logic, CLI commands, configuration loading, logging, and real PCAP analysis have not been implemented yet.
 
 ## Project Vision
 
@@ -56,7 +56,7 @@ The first complete version should add:
 
 ## Repository Status
 
-Current stage: Issue #3 high-level architecture documentation.
+Current stage: Issue #4 packet metadata model.
 
 Implemented now:
 
@@ -65,6 +65,7 @@ Implemented now:
 - High-level architecture documentation
 - Threat model placeholder
 - Python package folder
+- `PacketInfo` packet metadata model
 - Standard project folders
 - Python `.gitignore`
 - Initial `requirements.txt`
@@ -74,6 +75,7 @@ Implemented now:
 Not implemented yet:
 
 - Packet parsing
+- Alert model
 - Detection rules
 - CLI logic
 - Configuration loading
