@@ -1,6 +1,6 @@
 import json
 
-from mini_ids.models import PacketInfo
+from mini_ids.models import Alert, PacketInfo
 
 
 def test_packet_info_can_represent_tcp_packet() -> None:
@@ -117,3 +117,126 @@ def test_packet_info_serializes_to_json() -> None:
     assert data["timestamp"] == 1720000005.0
     assert data["protocol"] == "DNS"
     assert data["dns_query"] == "openai.com"
+
+
+def test_alert_can_be_created_with_basic_fields() -> None:
+    alert = Alert(
+        timestamp="2026-07-13T12:00:00Z",
+        rule_id="TEST-001",
+        rule_name="Test Rule",
+        severity="LOW",
+        description="A test alert was generated.",
+    )
+
+    assert alert.rule_id == "TEST-001"
+    assert alert.severity == "LOW"
+    assert alert.evidence == {}
+    assert alert.src_ip is None
+
+
+def test_alert_can_include_source_and_destination_details() -> None:
+    alert = Alert(
+        timestamp="2026-07-13T12:01:00Z",
+        rule_id="SCAN-001",
+        rule_name="Port Scan",
+        severity="MEDIUM",
+        description="Many destination ports were contacted.",
+        src_ip="192.168.1.10",
+        dst_ip="192.168.1.20",
+        src_port=51514,
+        dst_port=443,
+        protocol="TCP",
+    )
+
+    assert alert.src_ip == "192.168.1.10"
+    assert alert.dst_ip == "192.168.1.20"
+    assert alert.src_port == 51514
+    assert alert.dst_port == 443
+    assert alert.protocol == "TCP"
+
+
+def test_alert_can_include_evidence() -> None:
+    alert = Alert(
+        timestamp="2026-07-13T12:02:00Z",
+        rule_id="BURST-001",
+        rule_name="Connection Burst",
+        severity="HIGH",
+        description="A source created many connections in a short window.",
+        evidence={
+            "connection_count": 75,
+            "threshold": 50,
+            "time_window_seconds": 60,
+        },
+    )
+
+    assert alert.evidence["connection_count"] == 75
+    assert alert.evidence["threshold"] == 50
+    assert alert.evidence["time_window_seconds"] == 60
+
+
+def test_alert_can_include_mitre_mapping() -> None:
+    alert = Alert(
+        timestamp="2026-07-13T12:03:00Z",
+        rule_id="SCAN-001",
+        rule_name="Port Scan",
+        severity="MEDIUM",
+        description="Many destination ports were contacted.",
+        mitre_attack="T1046 - Network Service Discovery",
+        recommendation="Review whether this source should contact many ports.",
+    )
+
+    assert alert.mitre_attack == "T1046 - Network Service Discovery"
+    assert alert.recommendation == "Review whether this source should contact many ports."
+
+
+def test_alert_serializes_to_dict() -> None:
+    alert = Alert(
+        timestamp="2026-07-13T12:04:00Z",
+        rule_id="SCAN-001",
+        rule_name="Port Scan",
+        severity="MEDIUM",
+        description="Many destination ports were contacted.",
+        src_ip="10.0.0.5",
+        dst_ip="10.0.0.10",
+        src_port=40000,
+        dst_port=22,
+        protocol="TCP",
+        evidence={"unique_ports": 12, "threshold": 10},
+        mitre_attack="T1046 - Network Service Discovery",
+        recommendation="Investigate the source host.",
+    )
+
+    assert alert.to_dict() == {
+        "timestamp": "2026-07-13T12:04:00Z",
+        "rule_id": "SCAN-001",
+        "rule_name": "Port Scan",
+        "severity": "MEDIUM",
+        "description": "Many destination ports were contacted.",
+        "src_ip": "10.0.0.5",
+        "dst_ip": "10.0.0.10",
+        "src_port": 40000,
+        "dst_port": 22,
+        "protocol": "TCP",
+        "evidence": {"unique_ports": 12, "threshold": 10},
+        "mitre_attack": "T1046 - Network Service Discovery",
+        "recommendation": "Investigate the source host.",
+    }
+
+
+def test_alert_serializes_to_json() -> None:
+    alert = Alert(
+        timestamp="2026-07-13T12:05:00Z",
+        rule_id="DNS-001",
+        rule_name="DNS Anomaly",
+        severity="CRITICAL",
+        description="Suspicious DNS activity was observed.",
+        evidence={"query_count": 120},
+        mitre_attack="T1071.004 - Application Layer Protocol: DNS",
+    )
+
+    data = json.loads(alert.to_json())
+
+    assert data["rule_id"] == "DNS-001"
+    assert data["severity"] == "CRITICAL"
+    assert data["evidence"] == {"query_count": 120}
+    assert data["mitre_attack"] == "T1071.004 - Application Layer Protocol: DNS"

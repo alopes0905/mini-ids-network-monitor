@@ -11,10 +11,10 @@ Implemented so far:
 - Package import smoke test
 - Scope, threat model, and architecture documentation
 - `PacketInfo` packet metadata model
+- `Alert` structured alert model
 
 Not implemented yet:
 
-- Alert models
 - PCAP reader
 - Packet parser
 - Detection engine

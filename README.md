@@ -56,7 +56,7 @@ The first complete version should add:
 
 ## Repository Status
 
-Current stage: Issue #4 packet metadata model.
+Current stage: Issue #5 alert model.
 
 Implemented now:
 
@@ -66,6 +66,7 @@ Implemented now:
 - Threat model placeholder
 - Python package folder
 - `PacketInfo` packet metadata model
+- `Alert` structured alert model
 - Standard project folders
 - Python `.gitignore`
 - Initial `requirements.txt`
@@ -75,7 +76,6 @@ Implemented now:
 Not implemented yet:
 
 - Packet parsing
-- Alert model
 - Detection rules
 - CLI logic
 - Configuration loading
