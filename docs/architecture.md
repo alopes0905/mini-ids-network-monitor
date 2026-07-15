@@ -12,10 +12,10 @@ Implemented so far:
 - Scope, threat model, and architecture documentation
 - `PacketInfo` packet metadata model
 - `Alert` structured alert model
+- Offline PCAP reader for raw Scapy packets
 
 Not implemented yet:
 
-- PCAP reader
 - Packet parser
 - Detection engine
 - Detection rules
