@@ -13,10 +13,10 @@ Implemented so far:
 - `PacketInfo` packet metadata model
 - `Alert` structured alert model
 - Offline PCAP reader for raw Scapy packets
+- Packet parser for individual Scapy packets
 
 Not implemented yet:
 
-- Packet parser
 - Detection engine
 - Detection rules
 - CLI commands
