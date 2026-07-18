@@ -16,10 +16,10 @@ Implemented so far:
 - Packet parser for individual Scapy packets
 - Mock `PacketInfo` fixtures and example packet metadata
 - Abstract detection rule interface
+- Detection engine orchestration and basic statistics
 
 Not implemented yet:
 
-- Detection engine
 - Concrete detection rules
 - CLI commands
 - Logging
@@ -110,11 +110,13 @@ raw_summary: str | None
 
 ### Detection Engine
 
-Planned module: `mini_ids/engine.py`
+Module: `mini_ids/engine.py`
 
 The detection engine coordinates rule execution. It receives `PacketInfo` objects, passes each packet to enabled detection rules, collects generated alerts, and tracks basic processing counts.
 
 The engine should know how to call rules, but it should not contain rule-specific detection logic.
+
+The implemented `DetectionEngine` runs rules in registration order and preserves the order of alerts returned by each rule. It tracks processed packets, generated alerts, and alert counts for every supported severity. Unexpected rule exceptions propagate to the caller; statistics for that packet are updated only after every rule succeeds. Engine statistics can be reset without resetting registered rules or their internal state.
 
 ### Detection Rules
 
