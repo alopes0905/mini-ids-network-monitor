@@ -1,0 +1,344 @@
+{
+  "description": "Representative PacketInfo-style mock metadata for Mini IDS tests. This file uses documentation-only IP ranges and does not contain real captured traffic.",
+  "scenarios": {
+    "normal_tcp": [
+      {
+        "timestamp": 1720000000.0,
+        "src_ip": "192.0.2.10",
+        "dst_ip": "198.51.100.20",
+        "src_port": 51514,
+        "dst_port": 443,
+        "protocol": "TCP",
+        "packet_length": 74,
+        "tcp_flags": "PA",
+        "dns_query": null,
+        "dns_response": null,
+        "raw_summary": "TCP normal web session packet"
+      },
+      {
+        "timestamp": 1720000001.0,
+        "src_ip": "198.51.100.20",
+        "dst_ip": "192.0.2.10",
+        "src_port": 443,
+        "dst_port": 51514,
+        "protocol": "TCP",
+        "packet_length": 66,
+        "tcp_flags": "A",
+        "dns_query": null,
+        "dns_response": null,
+        "raw_summary": "TCP normal web session response"
+      }
+    ],
+    "normal_udp": [
+      {
+        "timestamp": 1720000010.0,
+        "src_ip": "192.0.2.11",
+        "dst_ip": "198.51.100.53",
+        "src_port": 53000,
+        "dst_port": 123,
+        "protocol": "UDP",
+        "packet_length": 76,
+        "tcp_flags": null,
+        "dns_query": null,
+        "dns_response": null,
+        "raw_summary": "UDP normal NTP-like request"
+      },
+      {
+        "timestamp": 1720000011.0,
+        "src_ip": "198.51.100.53",
+        "dst_ip": "192.0.2.11",
+        "src_port": 123,
+        "dst_port": 53000,
+        "protocol": "UDP",
+        "packet_length": 76,
+        "tcp_flags": null,
+        "dns_query": null,
+        "dns_response": null,
+        "raw_summary": "UDP normal NTP-like response"
+      }
+    ],
+    "normal_dns": [
+      {
+        "timestamp": 1720000020.0,
+        "src_ip": "192.0.2.12",
+        "dst_ip": "198.51.100.53",
+        "src_port": 53001,
+        "dst_port": 53,
+        "protocol": "DNS",
+        "packet_length": 82,
+        "tcp_flags": null,
+        "dns_query": "example.com",
+        "dns_response": null,
+        "raw_summary": "DNS query for example.com"
+      },
+      {
+        "timestamp": 1720000020.2,
+        "src_ip": "198.51.100.53",
+        "dst_ip": "192.0.2.12",
+        "src_port": 53,
+        "dst_port": 53001,
+        "protocol": "DNS",
+        "packet_length": 98,
+        "tcp_flags": null,
+        "dns_query": "example.com",
+        "dns_response": "203.0.113.10",
+        "raw_summary": "DNS response for example.com"
+      }
+    ],
+    "port_scan_like": [
+      {
+        "timestamp": 1720000060.0,
+        "src_ip": "192.0.2.50",
+        "dst_ip": "198.51.100.30",
+        "src_port": 41000,
+        "dst_port": 21,
+        "protocol": "TCP",
+        "packet_length": 60,
+        "tcp_flags": "S",
+        "dns_query": null,
+        "dns_response": null,
+        "raw_summary": "TCP SYN to destination port 21"
+      },
+      {
+        "timestamp": 1720000061.0,
+        "src_ip": "192.0.2.50",
+        "dst_ip": "198.51.100.30",
+        "src_port": 41001,
+        "dst_port": 22,
+        "protocol": "TCP",
+        "packet_length": 60,
+        "tcp_flags": "S",
+        "dns_query": null,
+        "dns_response": null,
+        "raw_summary": "TCP SYN to destination port 22"
+      },
+      {
+        "timestamp": 1720000062.0,
+        "src_ip": "192.0.2.50",
+        "dst_ip": "198.51.100.30",
+        "src_port": 41002,
+        "dst_port": 23,
+        "protocol": "TCP",
+        "packet_length": 60,
+        "tcp_flags": "S",
+        "dns_query": null,
+        "dns_response": null,
+        "raw_summary": "TCP SYN to destination port 23"
+      },
+      {
+        "timestamp": 1720000063.0,
+        "src_ip": "192.0.2.50",
+        "dst_ip": "198.51.100.30",
+        "src_port": 41003,
+        "dst_port": 25,
+        "protocol": "TCP",
+        "packet_length": 60,
+        "tcp_flags": "S",
+        "dns_query": null,
+        "dns_response": null,
+        "raw_summary": "TCP SYN to destination port 25"
+      },
+      {
+        "timestamp": 1720000064.0,
+        "src_ip": "192.0.2.50",
+        "dst_ip": "198.51.100.30",
+        "src_port": 41004,
+        "dst_port": 53,
+        "protocol": "TCP",
+        "packet_length": 60,
+        "tcp_flags": "S",
+        "dns_query": null,
+        "dns_response": null,
+        "raw_summary": "TCP SYN to destination port 53"
+      },
+      {
+        "timestamp": 1720000065.0,
+        "src_ip": "192.0.2.50",
+        "dst_ip": "198.51.100.30",
+        "src_port": 41005,
+        "dst_port": 80,
+        "protocol": "TCP",
+        "packet_length": 60,
+        "tcp_flags": "S",
+        "dns_query": null,
+        "dns_response": null,
+        "raw_summary": "TCP SYN to destination port 80"
+      },
+      {
+        "timestamp": 1720000066.0,
+        "src_ip": "192.0.2.50",
+        "dst_ip": "198.51.100.30",
+        "src_port": 41006,
+        "dst_port": 110,
+        "protocol": "TCP",
+        "packet_length": 60,
+        "tcp_flags": "S",
+        "dns_query": null,
+        "dns_response": null,
+        "raw_summary": "TCP SYN to destination port 110"
+      },
+      {
+        "timestamp": 1720000067.0,
+        "src_ip": "192.0.2.50",
+        "dst_ip": "198.51.100.30",
+        "src_port": 41007,
+        "dst_port": 143,
+        "protocol": "TCP",
+        "packet_length": 60,
+        "tcp_flags": "S",
+        "dns_query": null,
+        "dns_response": null,
+        "raw_summary": "TCP SYN to destination port 143"
+      },
+      {
+        "timestamp": 1720000068.0,
+        "src_ip": "192.0.2.50",
+        "dst_ip": "198.51.100.30",
+        "src_port": 41008,
+        "dst_port": 443,
+        "protocol": "TCP",
+        "packet_length": 60,
+        "tcp_flags": "S",
+        "dns_query": null,
+        "dns_response": null,
+        "raw_summary": "TCP SYN to destination port 443"
+      },
+      {
+        "timestamp": 1720000069.0,
+        "src_ip": "192.0.2.50",
+        "dst_ip": "198.51.100.30",
+        "src_port": 41009,
+        "dst_port": 3389,
+        "protocol": "TCP",
+        "packet_length": 60,
+        "tcp_flags": "S",
+        "dns_query": null,
+        "dns_response": null,
+        "raw_summary": "TCP SYN to destination port 3389"
+      }
+    ],
+    "connection_burst_like": [
+      {
+        "timestamp": 1720000120.0,
+        "src_ip": "192.0.2.60",
+        "dst_ip": "198.51.100.40",
+        "src_port": 42000,
+        "dst_port": 443,
+        "protocol": "TCP",
+        "packet_length": 66,
+        "tcp_flags": "S",
+        "dns_query": null,
+        "dns_response": null,
+        "raw_summary": "TCP short-window connection attempt"
+      },
+      {
+        "timestamp": 1720000120.2,
+        "src_ip": "192.0.2.60",
+        "dst_ip": "198.51.100.41",
+        "src_port": 42001,
+        "dst_port": 443,
+        "protocol": "TCP",
+        "packet_length": 66,
+        "tcp_flags": "S",
+        "dns_query": null,
+        "dns_response": null,
+        "raw_summary": "TCP short-window connection attempt"
+      },
+      {
+        "timestamp": 1720000120.4,
+        "src_ip": "192.0.2.60",
+        "dst_ip": "198.51.100.42",
+        "src_port": 42002,
+        "dst_port": 443,
+        "protocol": "TCP",
+        "packet_length": 66,
+        "tcp_flags": "S",
+        "dns_query": null,
+        "dns_response": null,
+        "raw_summary": "TCP short-window connection attempt"
+      },
+      {
+        "timestamp": 1720000120.6,
+        "src_ip": "192.0.2.60",
+        "dst_ip": "198.51.100.43",
+        "src_port": 42003,
+        "dst_port": 443,
+        "protocol": "TCP",
+        "packet_length": 66,
+        "tcp_flags": "S",
+        "dns_query": null,
+        "dns_response": null,
+        "raw_summary": "TCP short-window connection attempt"
+      },
+      {
+        "timestamp": 1720000120.8,
+        "src_ip": "192.0.2.60",
+        "dst_ip": "198.51.100.44",
+        "src_port": 42004,
+        "dst_port": 443,
+        "protocol": "TCP",
+        "packet_length": 66,
+        "tcp_flags": "S",
+        "dns_query": null,
+        "dns_response": null,
+        "raw_summary": "TCP short-window connection attempt"
+      }
+    ],
+    "mixed_normal": [
+      {
+        "timestamp": 1720000000.0,
+        "src_ip": "192.0.2.10",
+        "dst_ip": "198.51.100.20",
+        "src_port": 51514,
+        "dst_port": 443,
+        "protocol": "TCP",
+        "packet_length": 74,
+        "tcp_flags": "PA",
+        "dns_query": null,
+        "dns_response": null,
+        "raw_summary": "TCP normal web session packet"
+      },
+      {
+        "timestamp": 1720000010.0,
+        "src_ip": "192.0.2.11",
+        "dst_ip": "198.51.100.53",
+        "src_port": 53000,
+        "dst_port": 123,
+        "protocol": "UDP",
+        "packet_length": 76,
+        "tcp_flags": null,
+        "dns_query": null,
+        "dns_response": null,
+        "raw_summary": "UDP normal NTP-like request"
+      },
+      {
+        "timestamp": 1720000020.0,
+        "src_ip": "192.0.2.12",
+        "dst_ip": "198.51.100.53",
+        "src_port": 53001,
+        "dst_port": 53,
+        "protocol": "DNS",
+        "packet_length": 82,
+        "tcp_flags": null,
+        "dns_query": "example.com",
+        "dns_response": null,
+        "raw_summary": "DNS query for example.com"
+      }
+    ],
+    "other": [
+      {
+        "timestamp": 1720000180.0,
+        "src_ip": null,
+        "dst_ip": null,
+        "src_port": null,
+        "dst_port": null,
+        "protocol": "OTHER",
+        "packet_length": 60,
+        "tcp_flags": null,
+        "dns_query": null,
+        "dns_response": null,
+        "raw_summary": "Unsupported non-IP packet metadata"
+      }
+    ]
+  }
+}

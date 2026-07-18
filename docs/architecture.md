@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the planned high-level architecture of the Mini IDS / Network Security Monitor. It is a design document only: the project is still in the planning/setup phase and does not yet analyze PCAP files.
+This document describes the planned high-level architecture of the Mini IDS / Network Security Monitor. The project is still in an early implementation phase and does not yet perform full PCAP analysis or threat detection.
 
 ## Current Status
 
@@ -14,6 +14,7 @@ Implemented so far:
 - `Alert` structured alert model
 - Offline PCAP reader for raw Scapy packets
 - Packet parser for individual Scapy packets
+- Mock `PacketInfo` fixtures and example packet metadata
 
 Not implemented yet:
 
