@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the planned high-level architecture of the Mini IDS / Network Security Monitor. The project is still in an early implementation phase and does not yet perform full PCAP analysis or threat detection.
+This document describes the planned high-level architecture of the Mini IDS / Network Security Monitor. The project is still in an early implementation phase and does not yet perform full PCAP analysis or complete threat detection.
 
 ## Current Status
 
@@ -17,10 +17,11 @@ Implemented so far:
 - Mock `PacketInfo` fixtures and example packet metadata
 - Abstract detection rule interface
 - Detection engine orchestration and basic statistics
+- Vertical TCP SYN port-scan detection
 
 Not implemented yet:
 
-- Concrete detection rules
+- Connection burst and DNS anomaly detection
 - CLI commands
 - Logging
 - Reporting
@@ -124,12 +125,14 @@ Package: `mini_ids/rules/`
 
 Detection rules inspect `PacketInfo` objects and return zero or more `Alert` objects. Rules may be stateful when they need time windows or counters.
 
-The implemented `DetectionRule` interface requires stable rule metadata (`rule_id`, `name`, `description`, and `severity`) plus a `process_packet()` method. It does not prescribe how concrete rules store state or implement time windows. No concrete detection rules exist yet.
+The implemented `DetectionRule` interface requires stable rule metadata (`rule_id`, `name`, `description`, and `severity`) plus a `process_packet()` method. It does not prescribe how concrete rules store state or implement time windows.
+
+`PortScanRule` is the first concrete rule. It detects one source sending TCP SYN packets without ACK to more than 10 distinct ports on one destination within an inclusive rolling 60-second window. Thresholds are currently constructor arguments because configuration loading has not been implemented.
 
 First MVP rules:
 
-- Port scan detection
-- Connection burst detection
+- Port scan detection: implemented
+- Connection burst detection: not implemented
 
 v1.0 rule:
 

@@ -1,5 +1,6 @@
 """Detection rule interfaces for Mini IDS."""
 
 from mini_ids.rules.base import DetectionRule
+from mini_ids.rules.port_scan import PortScanRule
 
-__all__ = ["DetectionRule"]
+__all__ = ["DetectionRule", "PortScanRule"]
