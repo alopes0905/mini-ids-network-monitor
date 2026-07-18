@@ -15,11 +15,12 @@ Implemented so far:
 - Offline PCAP reader for raw Scapy packets
 - Packet parser for individual Scapy packets
 - Mock `PacketInfo` fixtures and example packet metadata
+- Abstract detection rule interface
 
 Not implemented yet:
 
 - Detection engine
-- Detection rules
+- Concrete detection rules
 - CLI commands
 - Logging
 - Reporting
@@ -117,9 +118,11 @@ The engine should know how to call rules, but it should not contain rule-specifi
 
 ### Detection Rules
 
-Planned package: `mini_ids/rules/`
+Package: `mini_ids/rules/`
 
 Detection rules inspect `PacketInfo` objects and return zero or more `Alert` objects. Rules may be stateful when they need time windows or counters.
+
+The implemented `DetectionRule` interface requires stable rule metadata (`rule_id`, `name`, `description`, and `severity`) plus a `process_packet()` method. It does not prescribe how concrete rules store state or implement time windows. No concrete detection rules exist yet.
 
 First MVP rules:
 

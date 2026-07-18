@@ -2,7 +2,7 @@
 
 Mini IDS is a defensive, passive, educational network security monitor written in Python. The project is intended to analyze offline PCAP files, extract packet metadata, detect simple suspicious behavior, and produce structured alerts and reports as it grows.
 
-This repository is in the early packet parsing and test-data stage. It can read raw packets from offline PCAP files, parse individual Scapy packets into `PacketInfo`, and provide reusable mock packet metadata for tests, but detection logic, CLI commands, configuration loading, logging, and full PCAP analysis have not been implemented yet.
+This repository is in the early detection architecture stage. It can read raw packets from offline PCAP files, parse individual Scapy packets into `PacketInfo`, provide reusable mock packet metadata, and define the common interface for future detection rules. The detection engine, concrete rules, CLI commands, configuration loading, logging, and full PCAP analysis have not been implemented yet.
 
 ## Project Vision
 
@@ -56,7 +56,7 @@ The first complete version should add:
 
 ## Repository Status
 
-Current stage: Issue #20 mock packet data for tests.
+Current stage: Issue #11 detection rule interface.
 
 Implemented now:
 
@@ -70,6 +70,7 @@ Implemented now:
 - Offline PCAP reader for raw Scapy packets
 - Packet parser for individual Scapy packets
 - Mock `PacketInfo` fixtures and example packet metadata
+- Abstract detection rule interface
 - Standard project folders
 - Python `.gitignore`
 - Initial `requirements.txt`
@@ -79,7 +80,7 @@ Implemented now:
 Not implemented yet:
 
 - Traffic analysis
-- Detection rules
+- Detection engine and concrete detection rules
 - CLI logic
 - Configuration loading
 - Logging
@@ -139,7 +140,7 @@ Run the current test suite:
 python -m pytest
 ```
 
-At this stage, the test suite covers the implemented models, PCAP reader, packet parser, and reusable mock packet data.
+At this stage, the test suite covers the implemented models, PCAP reader, packet parser, mock packet data, and detection rule interface.
 
 ## Usage
 
