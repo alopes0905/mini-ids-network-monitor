@@ -4,8 +4,14 @@ from io import StringIO
 import pytest
 from rich.console import Console
 
-from mini_ids.console import print_alert, print_alerts, print_summary
+from mini_ids.console import (
+    print_alert,
+    print_alerts,
+    print_summary,
+    print_traffic_summary,
+)
 from mini_ids.models import Alert, SEVERITY_LEVELS, Severity
+from mini_ids.reporting import TrafficSummary
 
 
 def make_console() -> tuple[Console, StringIO]:
@@ -34,6 +40,20 @@ def make_alert(
         severity=severity,
         description=description,
         **optional_fields,
+    )
+
+
+def make_traffic_summary() -> TrafficSummary:
+    return TrafficSummary(
+        packets_processed=6,
+        source_packet_counts={"192.0.2.10": 4, "192.0.2.20": 2},
+        destination_packet_counts={
+            "198.51.100.20": 3,
+            "198.51.100.53": 3,
+        },
+        destination_port_counts={443: 4, 53: 2},
+        protocol_counts={"TCP": 4, "DNS": 2},
+        dns_query_count=2,
     )
 
 
@@ -280,6 +300,87 @@ def test_missing_summary_severity_keys_are_displayed_as_zero() -> None:
     assert output.count("0") >= 3
 
 
+def test_traffic_summary_displays_totals_protocols_and_rankings() -> None:
+    console, stream = make_console()
+
+    print_traffic_summary(make_traffic_summary(), console)
+
+    output = stream.getvalue()
+    assert "Traffic Summary" in output
+    assert "Total parsed packets" in output
+    assert "6" in output
+    assert "DNS queries" in output
+    assert "Protocol TCP" in output
+    assert "Protocol DNS" in output
+    assert "Top sources" in output
+    assert "192.0.2.10 (4)" in output
+    assert "Top destinations" in output
+    assert "198.51.100.20 (3)" in output
+    assert "Top destination ports" in output
+    assert "443 (4)" in output
+
+
+def test_empty_traffic_summary_is_clear() -> None:
+    console, stream = make_console()
+    summary = TrafficSummary(
+        packets_processed=0,
+        source_packet_counts={},
+        destination_packet_counts={},
+        destination_port_counts={},
+        protocol_counts={},
+        dns_query_count=0,
+    )
+
+    print_traffic_summary(summary, console)
+
+    output = stream.getvalue()
+    assert "Total parsed packets" in output
+    assert "Protocols" in output
+    assert output.count("None observed") == 4
+
+
+def test_traffic_summary_output_is_bounded() -> None:
+    console, stream = make_console()
+    summary = TrafficSummary(
+        packets_processed=20,
+        source_packet_counts={
+            f"192.0.2.{index}": 20 - index for index in range(20)
+        },
+        destination_packet_counts={
+            f"198.51.100.{index}": 20 - index for index in range(20)
+        },
+        destination_port_counts={
+            1000 + index: 20 - index for index in range(20)
+        },
+        protocol_counts={
+            f"PROTO-{index}": 20 - index for index in range(20)
+        },
+        dns_query_count=0,
+    )
+
+    print_traffic_summary(summary, console)
+
+    output = stream.getvalue()
+    assert "192.0.2.0 (20)" in output
+    assert "192.0.2.5 (15)" not in output
+    assert "198.51.100.5 (15)" not in output
+    assert "1005 (15)" not in output
+    assert "Protocol PROTO-9" in output
+    assert "Protocol PROTO-10" not in output
+    assert "Additional protocols" in output
+    assert len(output) < 3_000
+
+
+def test_traffic_summary_rendering_does_not_mutate_input() -> None:
+    console, _ = make_console()
+    summary = make_traffic_summary()
+    before = deepcopy(summary)
+
+    print_traffic_summary(summary, console)
+
+    assert summary == before
+
+
 def test_provided_console_is_used_instead_of_standard_output(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
@@ -287,12 +388,14 @@ def test_provided_console_is_used_instead_of_standard_output(
 
     print_alert(make_alert(), console)
     print_summary({}, console)
+    print_traffic_summary(make_traffic_summary(), console)
 
     captured = capsys.readouterr()
     assert captured.out == ""
     assert captured.err == ""
     assert "Test Detection" in stream.getvalue()
     assert "Detection Summary" in stream.getvalue()
+    assert "Traffic Summary" in stream.getvalue()
 
 
 def test_console_functions_do_not_mutate_inputs() -> None:

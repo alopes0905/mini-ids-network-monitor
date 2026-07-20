@@ -10,11 +10,12 @@ from rich.console import Console
 
 from mini_ids.capture import PcapReadError, read_pcap
 from mini_ids.config import AppConfig, ConfigError, build_rules, load_config
-from mini_ids.console import print_alerts, print_summary
+from mini_ids.console import print_alerts, print_summary, print_traffic_summary
 from mini_ids.engine import DetectionEngine
 from mini_ids.logger import write_alerts_jsonl, write_packets_jsonl
 from mini_ids.models import PacketInfo
 from mini_ids.parser import parse_packet
+from mini_ids.reporting import build_traffic_summary
 
 
 class OutputWriteError(Exception):
@@ -54,6 +55,7 @@ def analyze_pcap(
     engine = DetectionEngine(build_rules(active_config))
     alerts = engine.process_packets(parsed_packets)
     summary = engine.get_summary()
+    traffic_summary = build_traffic_summary(parsed_packets)
 
     if packet_log is not None:
         try:
@@ -72,6 +74,7 @@ def analyze_pcap(
 
     print_alerts(alerts, console)
     print_summary(summary, console)
+    print_traffic_summary(traffic_summary, console)
     return summary
 
 

@@ -11,6 +11,7 @@ from rich.table import Table
 from rich.text import Text
 
 from mini_ids.models import Alert, SEVERITY_LEVELS, Severity
+from mini_ids.reporting import TrafficSummary
 
 
 _SEVERITY_STYLES: dict[Severity, str] = {
@@ -22,6 +23,7 @@ _SEVERITY_STYLES: dict[Severity, str] = {
 _MAX_EVIDENCE_ITEMS = 6
 _MAX_COLLECTION_ITEMS = 5
 _MAX_VALUE_LENGTH = 120
+_MAX_PROTOCOL_ROWS = 10
 
 
 def _get_console(console: Console | None) -> Console:
@@ -168,3 +170,53 @@ def print_summary(
         )
 
     output.print(table)
+
+
+def print_traffic_summary(
+    summary: TrafficSummary,
+    console: Console | None = None,
+    *,
+    top_limit: int = 5,
+) -> None:
+    """Print bounded aggregate traffic metadata without changing the summary."""
+
+    output = _get_console(console)
+    table = Table(title="Traffic Summary", show_header=False)
+    table.add_column("Metric", style="bold")
+    table.add_column("Value")
+    table.add_row("Total parsed packets", str(summary.packets_processed))
+    table.add_row("DNS queries", str(summary.dns_query_count))
+
+    ranked_protocols = sorted(
+        summary.protocol_counts.items(),
+        key=lambda item: (-item[1], item[0]),
+    )
+    for protocol, count in ranked_protocols[:_MAX_PROTOCOL_ROWS]:
+        table.add_row(f"Protocol {protocol}", str(count))
+    if not ranked_protocols:
+        table.add_row("Protocols", "None observed")
+    elif len(ranked_protocols) > _MAX_PROTOCOL_ROWS:
+        table.add_row(
+            "Additional protocols",
+            str(len(ranked_protocols) - _MAX_PROTOCOL_ROWS),
+        )
+
+    table.add_row(
+        "Top sources",
+        _format_ranked_counts(summary.top_sources(top_limit)),
+    )
+    table.add_row(
+        "Top destinations",
+        _format_ranked_counts(summary.top_destinations(top_limit)),
+    )
+    table.add_row(
+        "Top destination ports",
+        _format_ranked_counts(summary.top_destination_ports(top_limit)),
+    )
+    output.print(table)
+
+
+def _format_ranked_counts(values: list[tuple[object, int]]) -> str:
+    if not values:
+        return "None observed"
+    return ", ".join(f"{key} ({count})" for key, count in values)

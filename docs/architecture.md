@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the high-level architecture of the Mini IDS / Network Security Monitor. The project now provides a configurable end-to-end offline PCAP analysis command with three detection rules, but it does not yet provide aggregate reporting or live capture.
+This document describes the high-level architecture of the Mini IDS / Network Security Monitor. The project now provides a configurable end-to-end offline PCAP analysis command with three detection rules and in-memory traffic aggregation, but it does not yet write final analysis reports or support live capture.
 
 ## Current Status
 
@@ -20,14 +20,15 @@ Implemented so far:
 - Vertical TCP SYN port-scan detection
 - TCP connection-burst detection by source IP
 - Independent packet and alert JSONL persistence
-- Rich terminal presentation for alerts and engine summaries
+- Rich terminal presentation for alerts, detection summaries, and traffic summaries
 - Basic Typer CLI for end-to-end offline PCAP analysis
 - Typed YAML configuration for current detection rules
 - DNS query-burst, unique-domain, and long-domain detection
+- Aggregate traffic-summary generation and Rich presentation
 
 Not implemented yet:
 
-- Reporting
+- Final analysis report files
 - Live capture
 
 ## Architectural Goals
@@ -53,7 +54,7 @@ MVP components:
 - Detection Rules for port scan and connection burst behavior
 - `Alert` data model
 - Logger for JSONL alert output
-- Console presenter for alerts and engine summaries
+- Console presenter for alerts, detection summaries, and traffic summaries
 - Basic CLI for `analyze --pcap`
 
 DNS anomaly detection was not required for the first MVP and is the first implemented v1.0 rule. Final JSON reports and live capture remain future work. YAML configuration is optional; omitting it preserves the rule defaults.
@@ -68,8 +69,9 @@ PCAP file input
     -> detection engine
     -> enabled detection rules
     -> Alert objects
+    -> TrafficSummary from the parsed PacketInfo collection
     -> optional packet and alert JSONL logs
-    -> Rich alerts and engine summary
+    -> Rich alerts, detection summary, and traffic summary
 ```
 
 ## Component Responsibilities
@@ -179,15 +181,15 @@ The logger writes structured output, starting with JSON Lines alert logs. Loggin
 
 The implemented JSONL writer persists `PacketInfo` and `Alert` records independently by reusing their model serialization. It writes UTF-8, creates parent directories, appends by default, and supports explicit overwrite mode. Each low-level function writes to the caller-provided path; filename generation belongs to future orchestration.
 
-The basic CLI invokes the logger only when the caller supplies `--packet-log` or `--alert-log`. Each requested file uses explicit overwrite mode for a new analysis run. Traffic summaries and aggregate JSON reports remain future components.
+The basic CLI invokes the logger only when the caller supplies `--packet-log` or `--alert-log`. Each requested file uses explicit overwrite mode for a new analysis run. JSONL records remain individual packet or alert events; traffic summaries are not written by the logger.
 
 ### Console Presenter
 
 Module: `mini_ids/console.py`
 
-The console presenter renders individual alerts, ordered alert collections, and detection-engine summaries through Rich. Severity-aware styling improves scanning while labels keep output understandable when color is unavailable. Optional alert fields are omitted when absent, and evidence is bounded before display.
+The console presenter renders individual alerts, ordered alert collections, detection-engine summaries, and bounded traffic summaries through Rich. Severity-aware styling improves scanning while labels keep output understandable when color is unavailable. Optional alert fields are omitted when absent, and evidence is bounded before display.
 
-Console presentation does not calculate engine statistics, write files, parse CLI arguments, or coordinate packet analysis. JSONL persistence remains in `mini_ids/logger.py`; the CLI decides when to invoke each output layer.
+Console presentation does not calculate engine or traffic statistics, write files, parse CLI arguments, or coordinate packet analysis. JSONL persistence remains in `mini_ids/logger.py`; the CLI decides when to invoke each output layer.
 
 ### Configuration
 
@@ -197,13 +199,13 @@ The configuration layer loads optional YAML into frozen `AppConfig`, `PortScanCo
 
 `build_rules()` is the single configured rule-construction path. It emits enabled rules in deterministic port-scan, connection-burst, then DNS-anomaly order and omits disabled rules. Configuration does not contain placeholders for reporting or live capture.
 
-### Reporter
+### Traffic Summary Aggregator
 
-Planned module: `mini_ids/reporting.py`
+Module: `mini_ids/reporting.py`
 
-The reporter will create higher-level summaries after analysis. This is a v1.0 addition, not a requirement for the first basic CLI.
+`build_traffic_summary()` consumes normalized `PacketInfo` objects and returns a frozen `TrafficSummary`. It counts total packets, source and destination IPs, destination ports, protocols, and DNS queries independently from `DetectionEngine` statistics. Missing endpoint metadata still contributes to the total without creating placeholder keys.
 
-Planned report data includes packet counts, alert counts, severity counts, top sources, top destinations, top ports, and generated alerts.
+Top-source, top-destination, and top-port methods rank by descending count with deterministic lexical or numeric tie-breaking. `to_dict()` returns detached JSON-compatible data and stringifies destination-port keys only in the serialized representation. The module does not write files or combine traffic data with alerts into a final report; that remains Issue #27.
 
 ### CLI
 
@@ -215,7 +217,7 @@ The Typer CLI is the user-facing coordinator. It provides one offline analysis c
 python -m mini_ids.cli analyze --pcap pcaps/sample.pcap
 ```
 
-The command preserves parser and alert order, keeps `OTHER` packets, skips parser results of `None`, and reports statistics only for `PacketInfo` objects passed to the engine. Optional `--packet-log` and `--alert-log` paths write JSONL with explicit overwrite behavior. Optional `--config` loads validated YAML before rule construction; omitting it uses all three default rules.
+The command preserves parser and alert order, keeps `OTHER` packets, skips parser results of `None`, and reports statistics only for parsed `PacketInfo` objects. The same parsed packet collection is passed to the engine and traffic aggregator without parsing raw packets again. Rich output shows alerts, the separate detection summary, and the traffic summary. Optional `--packet-log` and `--alert-log` paths write JSONL with explicit overwrite behavior. Optional `--config` loads validated YAML before rule construction; omitting it uses all three default rules.
 
 Expected capture, configuration, and output-path errors are presented without tracebacks and return a non-zero exit code. Unexpected processing errors propagate. A configured run uses the same command with `--config`:
 
@@ -227,7 +229,6 @@ python -m mini_ids.cli analyze --pcap pcaps/sample.pcap --config examples/config
 
 After the MVP works, v1.0 should add:
 
-- Traffic summaries
 - JSON analysis reports
 - Optional live capture mode
 - More complete documentation and demo material
@@ -268,7 +269,10 @@ flowchart TD
     E --> I
     H --> J[Rich Console Presenter]
     F --> J
-    H --> K[Reporter - v1.0]
+    E --> K[Traffic Summary Aggregator]
+    K --> J
+    H --> O[Final Report - future]
+    K --> O
     N[Typer CLI] --> B
     N --> I
     N --> J
@@ -285,7 +289,7 @@ flowchart TD
 - Configuration is optional, strict, and limited to implemented rules.
 - Detection rules should process normalized `PacketInfo` objects, not raw Scapy packets.
 - Alerts should be structured data, not plain strings.
-- The logger and reporter are separate because logs are event-level output while reports are run-level summaries.
+- The logger, traffic aggregator, and future report writer are separate because event persistence, in-memory statistics, and complete report files have different responsibilities.
 - The CLI should coordinate existing components rather than contain parsing, detection, or logging logic.
 
 ## Development Setup

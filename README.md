@@ -2,7 +2,7 @@
 
 Mini IDS is a defensive, passive, educational network security monitor written in Python. The project is intended to analyze offline PCAP files, extract packet metadata, detect simple suspicious behavior, and produce structured alerts and reports as it grows.
 
-This repository now has a configurable end-to-end offline analysis workflow. Its Typer CLI can read and parse a PCAP, run vertical TCP port-scan, connection-burst, and DNS-anomaly rules, render alerts and engine statistics with Rich, and optionally write packet and alert JSONL logs. YAML configuration can enable, disable, and tune all three implemented rules. Aggregate reporting and live capture have not been implemented yet.
+This repository now has a configurable end-to-end offline analysis workflow. Its Typer CLI can read and parse a PCAP, run vertical TCP port-scan, connection-burst, and DNS-anomaly rules, render detection and aggregate traffic statistics with Rich, and optionally write packet and alert JSONL logs. YAML configuration can enable, disable, and tune all three implemented rules. Final report-file generation and live capture have not been implemented yet.
 
 ## Project Vision
 
@@ -47,7 +47,7 @@ The first functional MVP should include:
 The first complete version should add:
 
 - DNS anomaly detection (implemented)
-- Traffic summaries
+- Traffic summaries (implemented)
 - JSON analysis reports
 - Optional live capture mode
 - Professional documentation
@@ -56,7 +56,7 @@ The first complete version should add:
 
 ## Repository Status
 
-Current stage: Issue #15 DNS anomaly detection.
+Current stage: Issue #16 traffic-summary aggregation.
 
 Implemented now:
 
@@ -75,11 +75,12 @@ Implemented now:
 - Vertical TCP SYN port-scan detection
 - TCP connection-burst detection by source IP
 - DNS query-burst, unique-domain, and long-domain detection
+- Aggregate packet, endpoint, port, protocol, and DNS-query statistics
 - Independent packet and alert JSONL persistence
-- Rich terminal presentation for alerts and engine summaries
+- Rich terminal presentation for alerts, detection summaries, and traffic summaries
 - Basic `analyze --pcap` CLI workflow
 - Typed YAML configuration for current rule settings
-- 354-case test suite with 99% statement coverage
+- 388-case test suite with 99% statement coverage
 - Standard project folders
 - Python `.gitignore`
 - Initial `requirements.txt`
@@ -88,7 +89,7 @@ Implemented now:
 
 Not implemented yet:
 
-- Traffic summaries and aggregate reports
+- Final JSON analysis reports
 - Live capture
 
 ## Project Structure
@@ -151,7 +152,7 @@ Run the suite with statement coverage:
 python -m pytest --cov=mini_ids --cov-report=term-missing
 ```
 
-The current test count and statement coverage are recorded in [`docs/testing-report.md`](docs/testing-report.md). The suite covers the implemented models, PCAP reader, packet parser, mock packet data, rule interface, detection engine, all three detection rules, YAML configuration, JSONL persistence, console presentation, CLI workflow, and a public-API pipeline integration test.
+The current test count and statement coverage are recorded in [`docs/testing-report.md`](docs/testing-report.md). The suite covers the implemented models, PCAP reader, packet parser, mock packet data, rule interface, detection engine, all three detection rules, YAML configuration, traffic aggregation, JSONL persistence, console presentation, CLI workflow, and a public-API pipeline integration test.
 
 ## Usage
 
@@ -178,6 +179,8 @@ python3 -m mini_ids.cli analyze \
 ```
 
 Log files are created only when their option is supplied. Parent directories are created automatically, and each requested file is overwritten for the new analysis run rather than appended.
+
+Every successful analysis also prints a separate traffic summary containing the total parsed packet count, protocol distribution, DNS query count, and deterministic top-five source IPs, destination IPs, and destination ports. Rankings use descending packet count with lexical IP or numeric port tie-breaking. This in-memory summary is not written to a report file; packet and alert JSONL files remain individual event records.
 
 Configuration is optional. Without `--config`, all three rules use their existing defaults. To load a YAML file:
 
@@ -211,7 +214,7 @@ rules:
 
 Sections and fields may be omitted to retain defaults. A rule is disabled with `enabled: false`. Alert conditions are strictly greater than their thresholds: defaults alert on the 11th distinct destination port, the 51st initial connection attempt, the 31st DNS query, the 21st unique DNS domain, or a normalized domain length of 71. Unknown fields, unknown rules, malformed YAML, and invalid values fail clearly.
 
-DNS names are lowercased and one trailing dot is removed before DNS thresholds are evaluated. DNS detection is heuristic and does not prove command-and-control, tunneling, or other malicious activity. Traffic-summary or final-report generation and live capture are not implemented.
+DNS names are lowercased and one trailing dot is removed before DNS thresholds are evaluated. DNS detection is heuristic and does not prove command-and-control, tunneling, or other malicious activity. Final-report generation and live capture are not implemented.
 
 ## Documentation
 

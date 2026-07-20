@@ -156,6 +156,13 @@ def test_valid_synthetic_pcap_is_parsed_and_processed(tmp_path: Path) -> None:
     assert "Packets processed" in result.output
     assert "2" in result.output
     assert "Alerts generated" in result.output
+    assert "Traffic Summary" in result.output
+    assert "Total parsed packets" in result.output
+    assert "Protocol TCP" in result.output
+    assert "192.0.2.10 (2)" in result.output
+    assert "198.51.100.20 (2)" in result.output
+    assert "443 (2)" in result.output
+    assert "DNS queries" in result.output
 
 
 def test_empty_valid_pcap_is_handled(tmp_path: Path) -> None:
@@ -168,6 +175,10 @@ def test_empty_valid_pcap_is_handled(tmp_path: Path) -> None:
     assert "No alerts generated." in result.output
     assert "Packets processed" in result.output
     assert "Alerts generated" in result.output
+    assert "Traffic Summary" in result.output
+    assert "Total parsed packets" in result.output
+    assert "Protocols" in result.output
+    assert "None observed" in result.output
 
 
 def test_port_scan_pcap_generates_alert(tmp_path: Path) -> None:
@@ -221,6 +232,8 @@ def test_dns_query_burst_pcap_generates_alert_by_default(tmp_path: Path) -> None
     assert "query_burst" in result.output
     assert "Packets processed" in result.output
     assert "31" in result.output
+    assert "Protocol DNS" in result.output
+    assert "DNS queries" in result.output
 
 
 def test_valid_configuration_is_accepted(tmp_path: Path) -> None:
@@ -646,6 +659,7 @@ def test_other_packets_are_counted_as_parsed_packets(tmp_path: Path) -> None:
     records = read_jsonl(packet_log)
     assert len(records) == 1
     assert records[0]["protocol"] == "OTHER"
+    assert "Protocol OTHER" in result.output
 
 
 def test_packets_returning_none_from_parser_are_skipped(
@@ -671,6 +685,35 @@ def test_packets_returning_none_from_parser_are_skipped(
     assert result.exit_code == 0
     assert packet_log.read_text(encoding="utf-8") == ""
     assert "Packets processed" in result.output
+
+
+def test_cli_parses_each_raw_packet_once(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pcap_path = tmp_path / "single-parse.pcap"
+    write_pcap(
+        pcap_path,
+        [
+            make_tcp_packet(flags="PA"),
+            make_tcp_packet(timestamp=BASE_TIMESTAMP + 1, flags="A"),
+        ],
+    )
+    from mini_ids.parser import parse_packet as real_parse_packet
+
+    parse_calls = 0
+
+    def counting_parser(packet: Packet):
+        nonlocal parse_calls
+        parse_calls += 1
+        return real_parse_packet(packet)
+
+    monkeypatch.setattr("mini_ids.cli.parse_packet", counting_parser)
+
+    result = runner.invoke(app, ["analyze", "--pcap", str(pcap_path)])
+
+    assert result.exit_code == 0
+    assert parse_calls == 2
 
 
 @pytest.mark.parametrize(
@@ -770,3 +813,4 @@ def test_cli_does_not_add_standalone_dns_or_live_features() -> None:
     assert analyze_help.exit_code == 0
     assert "live" not in app_help.output.lower()
     assert "dns" not in analyze_help.output.lower()
+    assert "traffic-summary" not in analyze_help.output.lower()

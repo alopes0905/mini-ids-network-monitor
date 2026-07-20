@@ -8,11 +8,12 @@ from scapy.packet import Packet
 
 from mini_ids.capture import read_pcap
 from mini_ids.config import build_rules, load_config
-from mini_ids.console import print_alerts, print_summary
+from mini_ids.console import print_alerts, print_summary, print_traffic_summary
 from mini_ids.engine import DetectionEngine
 from mini_ids.logger import write_alerts_jsonl, write_packets_jsonl
 from mini_ids.models import PacketInfo
 from mini_ids.parser import parse_packet
+from mini_ids.reporting import build_traffic_summary
 
 
 BASE_TIMESTAMP = 1_720_000_000.0
@@ -67,12 +68,14 @@ def test_public_offline_pipeline_detects_logs_and_displays_results(
     engine = DetectionEngine(build_rules(load_config()))
     alerts = engine.process_packets(parsed_packets)
     summary = engine.get_summary()
+    traffic_summary = build_traffic_summary(parsed_packets)
     write_packets_jsonl(parsed_packets, packet_log, append=False)
     write_alerts_jsonl(alerts, alert_log, append=False)
     stream = StringIO()
     console = Console(file=stream, color_system=None, width=120)
     print_alerts(alerts, console)
     print_summary(summary, console)
+    print_traffic_summary(traffic_summary, console)
 
     packet_records = read_jsonl(packet_log)
     alert_records = read_jsonl(alert_log)
@@ -93,8 +96,31 @@ def test_public_offline_pipeline_detects_logs_and_displays_results(
             "CRITICAL": 0,
         },
     }
+    assert traffic_summary.to_dict() == {
+        "packets_processed": 82,
+        "source_packet_counts": {
+            "192.0.2.80": 51,
+            "192.0.2.90": 31,
+        },
+        "destination_packet_counts": {
+            "198.51.100.80": 51,
+            "198.51.100.53": 31,
+        },
+        "destination_port_counts": {
+            **{str(port): 1 for port in range(1000, 1051)},
+            "53": 31,
+        },
+        "protocol_counts": {"TCP": 51, "DNS": 31},
+        "dns_query_count": 31,
+    }
     output = stream.getvalue()
     assert output.index("PORT_SCAN_001") < output.index("CONNECTION_BURST_001")
     assert output.index("CONNECTION_BURST_001") < output.index("DNS_ANOMALY_001")
     assert "Packets processed" in output
     assert "Alerts generated" in output
+    assert "Traffic Summary" in output
+    assert "192.0.2.80 (51)" in output
+    assert "198.51.100.80 (51)" in output
+    assert "53 (31)" in output
+    assert "Protocol TCP" in output
+    assert "Protocol DNS" in output
