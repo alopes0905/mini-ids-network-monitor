@@ -1,4 +1,4 @@
-from scapy.all import DNS, DNSQR, Ether, ICMP, IP, TCP, UDP
+from scapy.all import DNS, DNSQR, DNSRR, Ether, ICMP, IP, TCP, UDP
 from scapy.packet import Raw
 
 from mini_ids.models import PacketInfo
@@ -66,6 +66,41 @@ def test_parse_dns_query_packet() -> None:
     assert parsed.dst_port == 53
     assert parsed.dns_query == "example.com"
     assert parsed.dns_response is None
+
+
+def test_parse_dns_response_packet() -> None:
+    packet = (
+        Ether()
+        / IP(src="198.51.100.53", dst="192.0.2.10")
+        / UDP(sport=53, dport=53000)
+        / DNS(
+            qr=1,
+            qd=DNSQR(qname="example.com"),
+            an=DNSRR(
+                rrname="example.com",
+                type="A",
+                rdata="203.0.113.5",
+            ),
+            ancount=1,
+        )
+    )
+
+    parsed = parse_packet(packet)
+
+    assert isinstance(parsed, PacketInfo)
+    assert parsed.protocol == "DNS"
+    assert parsed.dns_query == "example.com"
+    assert parsed.dns_response == "203.0.113.5"
+
+
+def test_invalid_packet_timestamp_falls_back_to_zero() -> None:
+    packet = Ether() / IP(dst="203.0.113.10") / TCP(dport=443)
+    packet.time = "not-a-timestamp"
+
+    parsed = parse_packet(packet)
+
+    assert isinstance(parsed, PacketInfo)
+    assert parsed.timestamp == 0.0
 
 
 def test_unsupported_packet_returns_other_packet_info() -> None:

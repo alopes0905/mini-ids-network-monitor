@@ -49,5 +49,7 @@ def test_read_pcap_raises_clear_error_for_invalid_file(tmp_path: Path) -> None:
     invalid_path = tmp_path / "invalid.pcap"
     invalid_path.write_text("this is not a valid pcap file")
 
-    with pytest.raises(PcapReadError, match="Unable to read PCAP file"):
+    with pytest.raises(PcapReadError, match="Unable to read PCAP file") as caught:
         read_pcap(invalid_path)
+
+    assert caught.value.__cause__ is not None

@@ -70,7 +70,11 @@ def test_rule_metadata_and_subclass_relationship() -> None:
     ("keyword", "value", "message"),
     [
         ("port_threshold", 0, "port_threshold"),
+        ("port_threshold", True, "port_threshold"),
+        ("port_threshold", 1.5, "port_threshold"),
         ("time_window_seconds", 0, "time_window_seconds"),
+        ("time_window_seconds", True, "time_window_seconds"),
+        ("time_window_seconds", "60", "time_window_seconds"),
         ("time_window_seconds", float("inf"), "time_window_seconds"),
     ],
 )
@@ -113,12 +117,23 @@ def test_syn_ack_packets_are_ignored() -> None:
     assert rule.process_packet(make_syn_packet(443, tcp_flags="AS")) == []
 
 
+@pytest.mark.parametrize("tcp_flags", [None, 1])
+def test_non_string_tcp_flags_are_ignored(tcp_flags: object) -> None:
+    rule = PortScanRule(port_threshold=1)
+    packet = replace(make_syn_packet(80), tcp_flags=tcp_flags)
+
+    assert rule.process_packet(packet) == []
+
+
 @pytest.mark.parametrize(
     "changes",
     [
         {"src_ip": None},
         {"dst_ip": None},
         {"dst_port": None},
+        {"dst_port": True},
+        {"dst_port": 0},
+        {"dst_port": 65536},
     ],
 )
 def test_packets_missing_required_metadata_are_ignored(
@@ -277,6 +292,14 @@ def test_unusable_timestamps_are_ignored(timestamp: float) -> None:
     rule = PortScanRule(port_threshold=1)
 
     assert rule.process_packet(make_syn_packet(80, timestamp=timestamp)) == []
+
+
+@pytest.mark.parametrize("timestamp", [True, "invalid", 10**100])
+def test_invalid_timestamp_types_and_ranges_are_ignored(timestamp: object) -> None:
+    rule = PortScanRule(port_threshold=1)
+    packet = replace(make_syn_packet(80), timestamp=timestamp)
+
+    assert rule.process_packet(packet) == []
 
 
 def test_out_of_order_timestamp_is_ignored() -> None:

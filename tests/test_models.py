@@ -1,4 +1,7 @@
 import json
+from dataclasses import FrozenInstanceError
+
+import pytest
 
 from mini_ids.models import Alert, PacketInfo
 
@@ -240,3 +243,40 @@ def test_alert_serializes_to_json() -> None:
     assert data["severity"] == "CRITICAL"
     assert data["evidence"] == {"query_count": 120}
     assert data["mitre_attack"] == "T1071.004 - Application Layer Protocol: DNS"
+
+
+def test_packet_info_fields_are_immutable() -> None:
+    packet = PacketInfo(
+        timestamp=1720000006.0,
+        src_ip="192.0.2.10",
+        dst_ip="198.51.100.20",
+        src_port=50000,
+        dst_port=443,
+        protocol="TCP",
+        packet_length=60,
+    )
+
+    with pytest.raises(FrozenInstanceError):
+        packet.protocol = "UDP"  # type: ignore[misc]
+
+
+def test_alert_fields_are_immutable_and_serialization_is_detached() -> None:
+    alert = Alert(
+        timestamp="2026-07-20T12:00:00Z",
+        rule_id="TEST-IMMUTABLE",
+        rule_name="Immutability Test",
+        severity="LOW",
+        description="Test immutable alert fields.",
+        evidence={"ports": [22, 80]},
+    )
+
+    serialized = alert.to_dict()
+    serialized_evidence = serialized["evidence"]
+    assert isinstance(serialized_evidence, dict)
+    ports = serialized_evidence["ports"]
+    assert isinstance(ports, list)
+    ports.append(443)
+
+    with pytest.raises(FrozenInstanceError):
+        alert.severity = "HIGH"  # type: ignore[misc]
+    assert alert.evidence == {"ports": [22, 80]}

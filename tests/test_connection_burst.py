@@ -79,7 +79,11 @@ def test_custom_threshold_and_time_window() -> None:
     ("keyword", "value", "message"),
     [
         ("connection_threshold", 0, "connection_threshold"),
+        ("connection_threshold", True, "connection_threshold"),
+        ("connection_threshold", 1.5, "connection_threshold"),
         ("time_window_seconds", 0, "time_window_seconds"),
+        ("time_window_seconds", True, "time_window_seconds"),
+        ("time_window_seconds", "60", "time_window_seconds"),
         ("time_window_seconds", float("inf"), "time_window_seconds"),
     ],
 )
@@ -111,13 +115,12 @@ def test_non_tcp_traffic_is_ignored(
     assert all(rule.process_packet(packet) == [] for packet in normal_udp_packets)
 
 
-@pytest.mark.parametrize("tcp_flags", [None, "", "A", "PA", "F"])
-def test_tcp_packets_without_syn_are_ignored(tcp_flags: str | None) -> None:
+@pytest.mark.parametrize("tcp_flags", [None, "", "A", "PA", "F", 1])
+def test_tcp_packets_without_syn_are_ignored(tcp_flags: object) -> None:
     rule = ConnectionBurstRule(connection_threshold=1)
+    packet = replace(make_connection_attempt(), tcp_flags=tcp_flags)
 
-    assert rule.process_packet(
-        make_connection_attempt(tcp_flags=tcp_flags)
-    ) == []
+    assert rule.process_packet(packet) == []
 
 
 @pytest.mark.parametrize("tcp_flags", ["SA", "AS"])
@@ -282,6 +285,14 @@ def test_unusable_timestamps_are_ignored(timestamp: float) -> None:
     assert rule.process_packet(
         make_connection_attempt(timestamp=timestamp)
     ) == []
+
+
+@pytest.mark.parametrize("timestamp", [True, "invalid", 10**100])
+def test_invalid_timestamp_types_and_ranges_are_ignored(timestamp: object) -> None:
+    rule = ConnectionBurstRule(connection_threshold=1)
+    packet = replace(make_connection_attempt(), timestamp=timestamp)
+
+    assert rule.process_packet(packet) == []
 
 
 def test_out_of_order_timestamp_is_ignored() -> None:

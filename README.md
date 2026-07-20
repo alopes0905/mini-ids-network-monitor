@@ -57,7 +57,7 @@ The first complete version should add:
 
 ## Repository Status
 
-Current stage: Issue #18 basic CLI entry point.
+Current stage: Issue #21 core test hardening.
 
 Implemented now:
 
@@ -78,6 +78,7 @@ Implemented now:
 - Independent packet and alert JSONL persistence
 - Rich terminal presentation for alerts and engine summaries
 - Basic `analyze --pcap` CLI workflow
+- 200-case test suite with 99% statement coverage
 - Standard project folders
 - Python `.gitignore`
 - Initial `requirements.txt`
@@ -145,7 +146,13 @@ Run the current test suite:
 python -m pytest
 ```
 
-At this stage, the test suite covers the implemented models, PCAP reader, packet parser, mock packet data, rule interface, detection engine, both detection rules, JSONL persistence, console presentation, and basic CLI workflow.
+Run the suite with statement coverage:
+
+```bash
+python -m pytest --cov=mini_ids --cov-report=term-missing
+```
+
+The current snapshot contains 200 passing test cases with 99% statement coverage. It covers the implemented models, PCAP reader, packet parser, mock packet data, rule interface, detection engine, both detection rules, JSONL persistence, console presentation, CLI workflow, and a public-API pipeline integration test. See [`docs/testing-report.md`](docs/testing-report.md) for module results and testing limitations.
 
 ## Usage
 
@@ -179,6 +186,7 @@ The CLI currently uses fixed constructor defaults for both rules. It does not su
 
 - `docs/architecture.md` describes the high-level architecture.
 - `docs/detection-rules.md` documents implemented detection semantics and limitations.
+- `docs/testing-report.md` records current coverage and testing limitations.
 - `docs/threat-model.md` defines the defensive and ethical scope.
 
 ## Responsible Use

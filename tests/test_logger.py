@@ -220,6 +220,32 @@ def test_empty_iterables_create_empty_valid_files(tmp_path: Path) -> None:
     assert alert_path.read_text(encoding="utf-8") == ""
 
 
+def test_iterable_writers_accept_generators(
+    tmp_path: Path,
+    normal_tcp_packets: list[PacketInfo],
+) -> None:
+    packet_path = tmp_path / "packets.jsonl"
+    alert_path = tmp_path / "alerts.jsonl"
+    alerts = [make_alert(rule_id="TEST-001"), make_alert(rule_id="TEST-002")]
+
+    write_packets_jsonl((packet for packet in normal_tcp_packets), packet_path)
+    write_alerts_jsonl((alert for alert in alerts), alert_path)
+
+    assert read_jsonl(packet_path) == [
+        packet.to_dict() for packet in normal_tcp_packets
+    ]
+    assert read_jsonl(alert_path) == [alert.to_dict() for alert in alerts]
+
+
+def test_empty_overwrite_truncates_stale_records(tmp_path: Path) -> None:
+    path = tmp_path / "alerts.jsonl"
+    write_alert_jsonl(make_alert(), path)
+
+    write_alerts_jsonl([], path, append=False)
+
+    assert path.read_text(encoding="utf-8") == ""
+
+
 def test_filesystem_errors_are_not_swallowed(
     tmp_path: Path,
     normal_tcp_packets: list[PacketInfo],
