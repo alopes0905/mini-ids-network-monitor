@@ -2,7 +2,7 @@
 
 Mini IDS is a defensive, passive, educational network security monitor written in Python. The project is intended to analyze offline PCAP files, extract packet metadata, detect simple suspicious behavior, and produce structured alerts and reports as it grows.
 
-This repository is in the early detection implementation stage. It can read and parse offline PCAP packets, detect vertical TCP port scans and high-volume TCP connection bursts, persist normalized packets and alerts as JSONL records, and render alerts and engine summaries with Rich. DNS anomaly detection, CLI commands, configuration loading, aggregate reporting, and full PCAP analysis orchestration have not been implemented yet.
+This repository now has a basic end-to-end offline analysis workflow. Its Typer CLI can read and parse a PCAP, run vertical TCP port-scan and connection-burst rules, render alerts and engine statistics with Rich, and optionally write packet and alert JSONL logs. DNS anomaly detection, configuration loading, aggregate reporting, and live capture have not been implemented yet.
 
 ## Project Vision
 
@@ -57,7 +57,7 @@ The first complete version should add:
 
 ## Repository Status
 
-Current stage: Issue #10 human-readable console output.
+Current stage: Issue #18 basic CLI entry point.
 
 Implemented now:
 
@@ -77,6 +77,7 @@ Implemented now:
 - TCP connection-burst detection by source IP
 - Independent packet and alert JSONL persistence
 - Rich terminal presentation for alerts and engine summaries
+- Basic `analyze --pcap` CLI workflow
 - Standard project folders
 - Python `.gitignore`
 - Initial `requirements.txt`
@@ -85,11 +86,10 @@ Implemented now:
 
 Not implemented yet:
 
-- Complete PCAP analysis orchestration
 - DNS anomaly detection
-- CLI logic
 - Configuration loading
 - Traffic summaries and aggregate reports
+- Live capture
 
 ## Project Structure
 
@@ -145,15 +145,39 @@ Run the current test suite:
 python -m pytest
 ```
 
-At this stage, the test suite covers the implemented models, PCAP reader, packet parser, mock packet data, rule interface, detection engine, both detection rules, JSONL persistence, and console presentation.
+At this stage, the test suite covers the implemented models, PCAP reader, packet parser, mock packet data, rule interface, detection engine, both detection rules, JSONL persistence, console presentation, and basic CLI workflow.
 
 ## Usage
 
-Usage commands will be added when the CLI issue is implemented. The project does not yet analyze PCAP files.
+Show application or command help:
+
+```bash
+python3 -m mini_ids.cli --help
+python3 -m mini_ids.cli analyze --help
+```
+
+Analyze an offline PCAP with the default port-scan and connection-burst rules:
+
+```bash
+python3 -m mini_ids.cli analyze --pcap /path/to/capture.pcap
+```
+
+Optionally write parsed packets and generated alerts as separate JSONL files:
+
+```bash
+python3 -m mini_ids.cli analyze \
+  --pcap /path/to/capture.pcap \
+  --packet-log logs/packets.jsonl \
+  --alert-log logs/alerts.jsonl
+```
+
+Log files are created only when their option is supplied. Parent directories are created automatically, and each requested file is overwritten for the new analysis run rather than appended.
+
+The CLI currently uses fixed constructor defaults for both rules. It does not support configuration files, DNS anomaly detection, traffic-summary or final-report generation, or live capture.
 
 ## Documentation
 
-- `docs/architecture.md` describes the planned high-level architecture.
+- `docs/architecture.md` describes the high-level architecture.
 - `docs/detection-rules.md` documents implemented detection semantics and limitations.
 - `docs/threat-model.md` defines the defensive and ethical scope.
 

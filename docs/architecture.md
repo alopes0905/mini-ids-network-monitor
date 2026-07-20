@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the planned high-level architecture of the Mini IDS / Network Security Monitor. The project is still in an early implementation phase and does not yet perform full PCAP analysis or complete threat detection.
+This document describes the high-level architecture of the Mini IDS / Network Security Monitor. The project now provides a basic end-to-end offline PCAP analysis command, but it remains an early MVP with two detection rules and no configuration, aggregate reporting, DNS anomaly detection, or live capture.
 
 ## Current Status
 
@@ -21,11 +21,11 @@ Implemented so far:
 - TCP connection-burst detection by source IP
 - Independent packet and alert JSONL persistence
 - Rich terminal presentation for alerts and engine summaries
+- Basic Typer CLI for end-to-end offline PCAP analysis
 
 Not implemented yet:
 
 - DNS anomaly detection
-- CLI commands
 - Reporting
 - Configuration loading
 - Live capture
@@ -42,7 +42,7 @@ Not implemented yet:
 
 ## MVP Architecture
 
-The MVP focuses on offline analysis of PCAP files. It should support a simple command that reads a PCAP, parses packet metadata, runs a small set of rules, prints a terminal summary, and writes structured alert logs.
+The MVP focuses on offline analysis of PCAP files. Its basic command reads a PCAP, parses packet metadata, runs the two implemented rules, prints alerts and a terminal summary, and optionally writes structured packet and alert logs.
 
 MVP components:
 
@@ -58,7 +58,7 @@ MVP components:
 
 DNS anomaly detection, configuration files, final JSON reports, and live capture are not required for the first MVP.
 
-## Planned Data Flow
+## Implemented MVP Data Flow
 
 ```text
 PCAP file input
@@ -68,35 +68,35 @@ PCAP file input
     -> detection engine
     -> enabled detection rules
     -> Alert objects
-    -> JSONL alert log
-    -> terminal summary
+    -> optional packet and alert JSONL logs
+    -> Rich alerts and engine summary
 ```
 
 ## Component Responsibilities
 
 ### Packet Source
 
-Planned module: `mini_ids/capture.py`
+Module: `mini_ids/capture.py`
 
-The packet source is responsible for reading packets from an input source. The first supported source should be offline PCAP files using Scapy. It should handle file-level concerns such as missing files, invalid PCAPs, and safe iteration over packets.
+The packet source reads raw packets from offline PCAP files using Scapy. It handles file-level concerns such as missing paths, non-file paths, and invalid or unreadable captures.
 
 The packet source should not parse packet fields into project models and should not run detection logic.
 
 ### Packet Parser
 
-Planned module: `mini_ids/parser.py`
+Module: `mini_ids/parser.py`
 
-The parser converts raw Scapy packets into normalized `PacketInfo` objects. It should extract metadata such as timestamps, source and destination IPs, ports, protocol, packet length, TCP flags, and DNS fields when available.
+The parser converts raw Scapy packets into normalized `PacketInfo` objects. It extracts timestamps, source and destination IPs, ports, protocol, packet length, TCP flags, and DNS fields when available.
 
 The parser should safely ignore or represent unsupported packets without crashing the analysis.
 
 ### PacketInfo Data Model
 
-Planned module: `mini_ids/models.py`
+Module: `mini_ids/models.py`
 
 `PacketInfo` is the internal representation of one parsed packet. Detection rules should use this model instead of raw Scapy packets.
 
-Planned fields:
+Fields:
 
 ```text
 timestamp: float
@@ -147,11 +147,11 @@ Rules should include enough evidence in alerts to explain why they fired, such a
 
 ### Alert Data Model
 
-Planned module: `mini_ids/models.py`
+Module: `mini_ids/models.py`
 
 `Alert` is the structured output of detection rules. Alerts should be easy to print, serialize to JSON, write to JSONL logs, and include optional MITRE ATT&CK references.
 
-Planned fields:
+Fields:
 
 ```text
 timestamp: str
@@ -177,7 +177,7 @@ The logger writes structured output, starting with JSON Lines alert logs. Loggin
 
 The implemented JSONL writer persists `PacketInfo` and `Alert` records independently by reusing their model serialization. It writes UTF-8, creates parent directories, appends by default, and supports explicit overwrite mode. Each low-level function writes to the caller-provided path; filename generation belongs to future orchestration.
 
-The logger is not yet connected to a CLI or complete PCAP analysis workflow. Console presentation is implemented separately, while traffic summaries and aggregate JSON reports remain future components.
+The basic CLI invokes the logger only when the caller supplies `--packet-log` or `--alert-log`. Each requested file uses explicit overwrite mode for a new analysis run. Traffic summaries and aggregate JSON reports remain future components.
 
 ### Console Presenter
 
@@ -185,7 +185,7 @@ Module: `mini_ids/console.py`
 
 The console presenter renders individual alerts, ordered alert collections, and detection-engine summaries through Rich. Severity-aware styling improves scanning while labels keep output understandable when color is unavailable. Optional alert fields are omitted when absent, and evidence is bounded before display.
 
-Console presentation does not calculate engine statistics, write files, parse CLI arguments, or coordinate packet analysis. JSONL persistence remains in `mini_ids/logger.py`; the future CLI will decide when to invoke each output layer.
+Console presentation does not calculate engine statistics, write files, parse CLI arguments, or coordinate packet analysis. JSONL persistence remains in `mini_ids/logger.py`; the CLI decides when to invoke each output layer.
 
 ### Reporter
 
@@ -197,15 +197,17 @@ Planned report data includes packet counts, alert counts, severity counts, top s
 
 ### CLI
 
-Planned module: `mini_ids/cli.py`
+Module: `mini_ids/cli.py`
 
-The CLI is the user-facing entry point. The first useful command should analyze an offline PCAP with default settings:
+The Typer CLI is the user-facing coordinator. It provides one offline analysis command with default rule settings:
 
 ```bash
 python -m mini_ids.cli analyze --pcap pcaps/sample.pcap
 ```
 
-Configuration support is useful, but it is not required for the first basic CLI. A later version can add:
+The command preserves parser and alert order, keeps `OTHER` packets, skips parser results of `None`, and reports statistics only for `PacketInfo` objects passed to the engine. Optional `--packet-log` and `--alert-log` paths write JSONL with explicit overwrite behavior.
+
+Expected capture and output-path errors are presented without tracebacks and return a non-zero exit code. Unexpected processing errors propagate. Configuration support is useful, but it is not part of this basic CLI; a later version can add:
 
 ```bash
 python -m mini_ids.cli analyze --pcap pcaps/sample.pcap --config examples/config.example.yaml
@@ -255,9 +257,13 @@ flowchart TD
     F --> G[Detection Rules]
     G --> H[Alert Model]
     H --> I[JSONL Logger]
+    E --> I
     H --> J[Rich Console Presenter]
     F --> J
     H --> K[Reporter - v1.0]
+    N[Typer CLI] --> B
+    N --> I
+    N --> J
 
     L[Live Capture - non-MVP] -. later .-> B
     M[YAML Config - v1.0] -. later .-> F
