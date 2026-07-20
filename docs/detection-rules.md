@@ -43,7 +43,40 @@ Legitimate vulnerability scanners, monitoring systems, inventory tools, and admi
 
 This first implementation detects vertical TCP SYN scanning only. It does not detect horizontal scanning, UDP scanning, established-connection traffic, payload behavior, or distributed scanning. Thresholds are constructor arguments until configuration loading is implemented.
 
+## TCP Connection Burst
+
+Status: implemented.
+
+Class: `mini_ids.rules.ConnectionBurstRule`
+
+Default constructor values:
+
+```python
+ConnectionBurstRule(connection_threshold=50, time_window_seconds=60)
+```
+
+### Detection Semantics
+
+The rule groups attempts by source IP and counts every TCP packet that includes SYN, excludes ACK, and has a usable source IP and timestamp. Destination metadata is optional. Repeated attempts to the same destination and port count separately because this rule measures connection-attempt volume rather than target diversity.
+
+The default alert condition is **more than 50 initial connection attempts within an inclusive rolling 60-second window**. Fifty attempts do not alert; the 51st alerts. Attempts exactly 60 seconds old remain active, while older attempts expire.
+
+One alert is emitted when a source enters the alerting state. Further attempts are suppressed while the active count remains above the threshold. The source re-arms after expiry returns the count to 50 or fewer. Non-positive or non-finite timestamps are ignored, as are timestamps older than the latest qualifying attempt for that source.
+
+### Alert Evidence
+
+Each alert includes the source IP, active attempt count, configured threshold and window, first and latest active timestamps, counts of observed destinations and ports, and the top five destination IPs and ports by attempt count. The bounded top-five lists keep evidence compact and JSON-serializable.
+
+Connection volume alone does not identify a specific attack technique, so this rule does not assign a MITRE ATT&CK mapping. Its recommendation is to review the source and correlate the activity with authentication, firewall, and service logs.
+
+### Limitations and False Positives
+
+Possible causes include scanning, brute-force-like activity, worm-like behavior, automated clients, misconfigured software, and legitimate high-volume workloads. An alert identifies unusual volume, not malicious intent.
+
+Unlike vertical port-scan detection, this rule aggregates all qualifying attempts from one source across destinations and ports. It counts repeated attempts to the same target separately; the port-scan rule instead counts distinct ports for one source/destination pair.
+
+Thresholds are constructor arguments until configuration loading is implemented.
+
 ## Planned Rules
 
-- Connection burst detection: not implemented
 - DNS anomaly detection: not implemented

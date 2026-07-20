@@ -18,10 +18,11 @@ Implemented so far:
 - Abstract detection rule interface
 - Detection engine orchestration and basic statistics
 - Vertical TCP SYN port-scan detection
+- TCP connection-burst detection by source IP
 
 Not implemented yet:
 
-- Connection burst and DNS anomaly detection
+- DNS anomaly detection
 - CLI commands
 - Logging
 - Reporting
@@ -129,10 +130,12 @@ The implemented `DetectionRule` interface requires stable rule metadata (`rule_i
 
 `PortScanRule` is the first concrete rule. It detects one source sending TCP SYN packets without ACK to more than 10 distinct ports on one destination within an inclusive rolling 60-second window. Thresholds are currently constructor arguments because configuration loading has not been implemented.
 
+`ConnectionBurstRule` detects one source sending more than 50 TCP SYN packets without ACK within an inclusive rolling 60-second window. It counts repeated attempts separately across all destinations and ports. Its evidence uses bounded destination summaries, and its thresholds are also constructor arguments.
+
 First MVP rules:
 
 - Port scan detection: implemented
-- Connection burst detection: not implemented
+- Connection burst detection: implemented
 
 v1.0 rule:
 

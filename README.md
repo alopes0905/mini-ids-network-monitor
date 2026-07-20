@@ -2,7 +2,7 @@
 
 Mini IDS is a defensive, passive, educational network security monitor written in Python. The project is intended to analyze offline PCAP files, extract packet metadata, detect simple suspicious behavior, and produce structured alerts and reports as it grows.
 
-This repository is in the early detection implementation stage. It can read raw packets from offline PCAP files, parse individual Scapy packets into `PacketInfo`, orchestrate rules through a detection engine, and detect vertical TCP port-scan behavior in normalized packet metadata. Connection-burst and DNS anomaly rules, CLI commands, configuration loading, logging, and full PCAP analysis have not been implemented yet.
+This repository is in the early detection implementation stage. It can read raw packets from offline PCAP files, parse individual Scapy packets into `PacketInfo`, orchestrate rules through a detection engine, and detect vertical TCP port scans and high-volume TCP connection bursts in normalized packet metadata. DNS anomaly detection, CLI commands, configuration loading, logging, and full PCAP analysis have not been implemented yet.
 
 ## Project Vision
 
@@ -56,7 +56,7 @@ The first complete version should add:
 
 ## Repository Status
 
-Current stage: Issue #13 port scan detection.
+Current stage: Issue #14 connection burst detection.
 
 Implemented now:
 
@@ -73,6 +73,7 @@ Implemented now:
 - Abstract detection rule interface
 - Detection engine orchestration and basic statistics
 - Vertical TCP SYN port-scan detection
+- TCP connection-burst detection by source IP
 - Standard project folders
 - Python `.gitignore`
 - Initial `requirements.txt`
@@ -82,7 +83,7 @@ Implemented now:
 Not implemented yet:
 
 - Traffic analysis
-- Connection burst and DNS anomaly detection
+- DNS anomaly detection
 - CLI logic
 - Configuration loading
 - Logging
@@ -142,7 +143,7 @@ Run the current test suite:
 python -m pytest
 ```
 
-At this stage, the test suite covers the implemented models, PCAP reader, packet parser, mock packet data, rule interface, detection engine, and port-scan rule.
+At this stage, the test suite covers the implemented models, PCAP reader, packet parser, mock packet data, rule interface, detection engine, port-scan rule, and connection-burst rule.
 
 ## Usage
 
