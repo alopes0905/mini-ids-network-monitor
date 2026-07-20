@@ -19,12 +19,13 @@ Implemented so far:
 - Detection engine orchestration and basic statistics
 - Vertical TCP SYN port-scan detection
 - TCP connection-burst detection by source IP
+- Independent packet and alert JSONL persistence
 
 Not implemented yet:
 
 - DNS anomaly detection
 - CLI commands
-- Logging
+- Console formatting
 - Reporting
 - Configuration loading
 - Live capture
@@ -169,11 +170,13 @@ recommendation: str | None
 
 ### Logger
 
-Planned module: `mini_ids/logger.py`
+Module: `mini_ids/logger.py`
 
 The logger writes structured output, starting with JSON Lines alert logs. Logging should avoid dumping unnecessary raw packet payloads and should prefer normalized packet and alert data.
 
-For the MVP, alert logging is enough. Packet logging and richer formats can come later if useful.
+The implemented JSONL writer persists `PacketInfo` and `Alert` records independently by reusing their model serialization. It writes UTF-8, creates parent directories, appends by default, and supports explicit overwrite mode. Each low-level function writes to the caller-provided path; filename generation belongs to future orchestration.
+
+The logger is not yet connected to a CLI or complete PCAP analysis workflow. Console formatting, traffic summaries, and aggregate JSON reports remain separate future components.
 
 ### Reporter
 
