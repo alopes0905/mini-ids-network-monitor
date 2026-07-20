@@ -3,14 +3,14 @@ from pathlib import Path
 
 import pytest
 import yaml
-from scapy.all import Ether, IP, Raw, TCP, wrpcap
+from scapy.all import DNS, DNSQR, Ether, IP, Raw, TCP, UDP, wrpcap
 from scapy.packet import Packet
 from scapy.utils import PcapWriter
 from typer.testing import CliRunner
 
 from mini_ids.cli import app
 from mini_ids.config import build_rules, load_config
-from mini_ids.rules import ConnectionBurstRule, PortScanRule
+from mini_ids.rules import ConnectionBurstRule, DNSAnomalyRule, PortScanRule
 
 
 BASE_TIMESTAMP = 1_720_000_000.0
@@ -76,6 +76,40 @@ def make_connection_burst_packets() -> list[Packet]:
             destination_port=443,
         )
         for index in range(51)
+    ]
+
+
+def make_dns_query_packet(
+    *,
+    timestamp: float = BASE_TIMESTAMP,
+    source_ip: str = "192.0.2.70",
+    domain: str = "example.com",
+) -> Packet:
+    packet = (
+        Ether(src="02:00:00:00:00:01", dst="02:00:00:00:00:02")
+        / IP(src=source_ip, dst="198.51.100.53")
+        / UDP(sport=53000, dport=53)
+        / DNS(rd=1, qd=DNSQR(qname=domain))
+    )
+    packet.time = timestamp
+    return packet
+
+
+def make_dns_query_packets(
+    count: int,
+    *,
+    unique_domains: bool = False,
+) -> list[Packet]:
+    return [
+        make_dns_query_packet(
+            timestamp=BASE_TIMESTAMP + index,
+            domain=(
+                f"domain-{index}.example"
+                if unique_domains
+                else "repeated.example"
+            ),
+        )
+        for index in range(count)
     ]
 
 
@@ -175,6 +209,20 @@ def test_both_rules_can_alert_in_one_analysis(tmp_path: Path) -> None:
     assert "Alerts generated" in result.output
 
 
+def test_dns_query_burst_pcap_generates_alert_by_default(tmp_path: Path) -> None:
+    pcap_path = tmp_path / "dns-query-burst.pcap"
+    write_pcap(pcap_path, make_dns_query_packets(31))
+
+    result = runner.invoke(app, ["analyze", "--pcap", str(pcap_path)])
+
+    assert result.exit_code == 0
+    assert "DNS Anomaly Detection" in result.output
+    assert "DNS_ANOMALY_001" in result.output
+    assert "query_burst" in result.output
+    assert "Packets processed" in result.output
+    assert "31" in result.output
+
+
 def test_valid_configuration_is_accepted(tmp_path: Path) -> None:
     pcap_path = tmp_path / "normal.pcap"
     config_path = write_config(
@@ -262,6 +310,82 @@ def test_custom_connection_threshold_changes_detection_behavior(
     assert "PORT_SCAN_001" not in result.output
 
 
+@pytest.mark.parametrize(
+    ("dns_settings", "packets", "anomaly_type"),
+    [
+        (
+            {"query_threshold": 2},
+            make_dns_query_packets(3),
+            "query_burst",
+        ),
+        (
+            {
+                "query_threshold": 100,
+                "unique_domain_threshold": 2,
+            },
+            make_dns_query_packets(3, unique_domains=True),
+            "unique_domain_burst",
+        ),
+        (
+            {"long_domain_threshold": 5},
+            [make_dns_query_packet(domain="long.example")],
+            "long_domain",
+        ),
+    ],
+)
+def test_custom_dns_thresholds_change_detection_behavior(
+    tmp_path: Path,
+    dns_settings: dict[str, object],
+    packets: list[Packet],
+    anomaly_type: str,
+) -> None:
+    pcap_path = tmp_path / f"custom-{anomaly_type}.pcap"
+    config_path = write_config(
+        tmp_path,
+        {"rules": {"dns_anomaly": dns_settings}},
+    )
+    write_pcap(pcap_path, packets)
+
+    result = runner.invoke(
+        app,
+        [
+            "analyze",
+            "--pcap",
+            str(pcap_path),
+            "--config",
+            str(config_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "DNS_ANOMALY_001" in result.output
+    assert anomaly_type in result.output
+
+
+def test_disabling_dns_rule_prevents_dns_alert(tmp_path: Path) -> None:
+    pcap_path = tmp_path / "dns-disabled.pcap"
+    config_path = write_config(
+        tmp_path,
+        {"rules": {"dns_anomaly": {"enabled": False}}},
+    )
+    write_pcap(pcap_path, make_dns_query_packets(31))
+
+    result = runner.invoke(
+        app,
+        [
+            "analyze",
+            "--pcap",
+            str(pcap_path),
+            "--config",
+            str(config_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "DNS_ANOMALY_001" not in result.output
+    assert "No alerts generated." in result.output
+
+
 @pytest.mark.parametrize("disabled_rule", ["port_scan", "connection_burst"])
 def test_disabling_one_rule_prevents_its_alert(
     tmp_path: Path,
@@ -308,6 +432,7 @@ def test_disabling_all_rules_still_processes_packets(tmp_path: Path) -> None:
             "rules": {
                 "port_scan": {"enabled": False},
                 "connection_burst": {"enabled": False},
+                "dns_anomaly": {"enabled": False},
             }
         },
     )
@@ -427,6 +552,31 @@ def test_alert_log_matches_generated_alerts_and_preserves_order(
         "PORT_SCAN_001",
         "CONNECTION_BURST_001",
     ]
+
+
+def test_dns_alert_is_written_to_alert_jsonl(tmp_path: Path) -> None:
+    pcap_path = tmp_path / "dns-alert.pcap"
+    alert_log = tmp_path / "dns-alerts.jsonl"
+    write_pcap(pcap_path, make_dns_query_packets(31))
+
+    result = runner.invoke(
+        app,
+        [
+            "analyze",
+            "--pcap",
+            str(pcap_path),
+            "--alert-log",
+            str(alert_log),
+        ],
+    )
+
+    assert result.exit_code == 0
+    records = read_jsonl(alert_log)
+    assert len(records) == 1
+    assert records[0]["rule_id"] == "DNS_ANOMALY_001"
+    evidence = records[0]["evidence"]
+    assert isinstance(evidence, dict)
+    assert evidence["anomaly_type"] == "query_burst"
 
 
 def test_log_paths_are_overwritten_and_parent_directories_are_created(
@@ -602,16 +752,17 @@ def test_unexpected_processing_errors_are_not_swallowed(
     assert str(result.exception) == "unexpected parser failure"
 
 
-def test_default_engine_registers_only_current_rules() -> None:
+def test_default_engine_registers_all_current_rules() -> None:
     rules = build_rules(load_config())
 
     assert [type(rule) for rule in rules] == [
         PortScanRule,
         ConnectionBurstRule,
+        DNSAnomalyRule,
     ]
 
 
-def test_cli_does_not_expose_future_dns_or_live_features() -> None:
+def test_cli_does_not_add_standalone_dns_or_live_features() -> None:
     app_help = runner.invoke(app, ["--help"])
     analyze_help = runner.invoke(app, ["analyze", "--help"])
 

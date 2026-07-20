@@ -2,7 +2,7 @@
 
 Mini IDS is a defensive, passive, educational network security monitor written in Python. The project is intended to analyze offline PCAP files, extract packet metadata, detect simple suspicious behavior, and produce structured alerts and reports as it grows.
 
-This repository now has a configurable end-to-end offline analysis workflow. Its Typer CLI can read and parse a PCAP, run vertical TCP port-scan and connection-burst rules, render alerts and engine statistics with Rich, and optionally write packet and alert JSONL logs. YAML configuration can enable, disable, and tune the two implemented rules. DNS anomaly detection, aggregate reporting, and live capture have not been implemented yet.
+This repository now has a configurable end-to-end offline analysis workflow. Its Typer CLI can read and parse a PCAP, run vertical TCP port-scan, connection-burst, and DNS-anomaly rules, render alerts and engine statistics with Rich, and optionally write packet and alert JSONL logs. YAML configuration can enable, disable, and tune all three implemented rules. Aggregate reporting and live capture have not been implemented yet.
 
 ## Project Vision
 
@@ -42,11 +42,11 @@ The first functional MVP should include:
 - Basic CLI command
 - Basic unit tests
 
-## Planned v1.0
+## v1.0 Roadmap
 
 The first complete version should add:
 
-- DNS anomaly detection
+- DNS anomaly detection (implemented)
 - Traffic summaries
 - JSON analysis reports
 - Optional live capture mode
@@ -56,7 +56,7 @@ The first complete version should add:
 
 ## Repository Status
 
-Current stage: Issue #17 YAML configuration support.
+Current stage: Issue #15 DNS anomaly detection.
 
 Implemented now:
 
@@ -74,11 +74,12 @@ Implemented now:
 - Detection engine orchestration and basic statistics
 - Vertical TCP SYN port-scan detection
 - TCP connection-burst detection by source IP
+- DNS query-burst, unique-domain, and long-domain detection
 - Independent packet and alert JSONL persistence
 - Rich terminal presentation for alerts and engine summaries
 - Basic `analyze --pcap` CLI workflow
 - Typed YAML configuration for current rule settings
-- 261-case test suite with 99% statement coverage
+- 354-case test suite with 99% statement coverage
 - Standard project folders
 - Python `.gitignore`
 - Initial `requirements.txt`
@@ -87,7 +88,6 @@ Implemented now:
 
 Not implemented yet:
 
-- DNS anomaly detection
 - Traffic summaries and aggregate reports
 - Live capture
 
@@ -151,7 +151,7 @@ Run the suite with statement coverage:
 python -m pytest --cov=mini_ids --cov-report=term-missing
 ```
 
-The current snapshot contains 261 passing test cases with 99% statement coverage. It covers the implemented models, PCAP reader, packet parser, mock packet data, rule interface, detection engine, both detection rules, YAML configuration, JSONL persistence, console presentation, CLI workflow, and a public-API pipeline integration test. See [`docs/testing-report.md`](docs/testing-report.md) for module results and testing limitations.
+The current test count and statement coverage are recorded in [`docs/testing-report.md`](docs/testing-report.md). The suite covers the implemented models, PCAP reader, packet parser, mock packet data, rule interface, detection engine, all three detection rules, YAML configuration, JSONL persistence, console presentation, CLI workflow, and a public-API pipeline integration test.
 
 ## Usage
 
@@ -162,7 +162,7 @@ python3 -m mini_ids.cli --help
 python3 -m mini_ids.cli analyze --help
 ```
 
-Analyze an offline PCAP with the default port-scan and connection-burst rules:
+Analyze an offline PCAP with all three default rules:
 
 ```bash
 python3 -m mini_ids.cli analyze --pcap /path/to/capture.pcap
@@ -179,7 +179,7 @@ python3 -m mini_ids.cli analyze \
 
 Log files are created only when their option is supplied. Parent directories are created automatically, and each requested file is overwritten for the new analysis run rather than appended.
 
-Configuration is optional. Without `--config`, both rules use their existing defaults. To load a YAML file:
+Configuration is optional. Without `--config`, all three rules use their existing defaults. To load a YAML file:
 
 ```bash
 python3 -m mini_ids.cli analyze \
@@ -200,11 +200,18 @@ rules:
     enabled: true
     connection_threshold: 50
     time_window_seconds: 60
+
+  dns_anomaly:
+    enabled: true
+    query_threshold: 30
+    unique_domain_threshold: 20
+    long_domain_threshold: 70
+    time_window_seconds: 60
 ```
 
-Sections and fields may be omitted to retain defaults. A rule is disabled with `enabled: false`. Alert conditions are strictly greater than their thresholds: defaults alert on the 11th distinct destination port or the 51st initial connection attempt within 60 seconds. Unknown fields, unknown rules, malformed YAML, and invalid values fail clearly.
+Sections and fields may be omitted to retain defaults. A rule is disabled with `enabled: false`. Alert conditions are strictly greater than their thresholds: defaults alert on the 11th distinct destination port, the 51st initial connection attempt, the 31st DNS query, the 21st unique DNS domain, or a normalized domain length of 71. Unknown fields, unknown rules, malformed YAML, and invalid values fail clearly.
 
-Only port-scan and connection-burst rules are configurable. DNS anomaly detection, traffic-summary or final-report generation, and live capture are not implemented.
+DNS names are lowercased and one trailing dot is removed before DNS thresholds are evaluated. DNS detection is heuristic and does not prove command-and-control, tunneling, or other malicious activity. Traffic-summary or final-report generation and live capture are not implemented.
 
 ## Documentation
 

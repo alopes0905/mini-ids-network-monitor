@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the high-level architecture of the Mini IDS / Network Security Monitor. The project now provides a configurable end-to-end offline PCAP analysis command, but it remains an early MVP with two detection rules and no aggregate reporting, DNS anomaly detection, or live capture.
+This document describes the high-level architecture of the Mini IDS / Network Security Monitor. The project now provides a configurable end-to-end offline PCAP analysis command with three detection rules, but it does not yet provide aggregate reporting or live capture.
 
 ## Current Status
 
@@ -23,10 +23,10 @@ Implemented so far:
 - Rich terminal presentation for alerts and engine summaries
 - Basic Typer CLI for end-to-end offline PCAP analysis
 - Typed YAML configuration for current detection rules
+- DNS query-burst, unique-domain, and long-domain detection
 
 Not implemented yet:
 
-- DNS anomaly detection
 - Reporting
 - Live capture
 
@@ -56,7 +56,7 @@ MVP components:
 - Console presenter for alerts and engine summaries
 - Basic CLI for `analyze --pcap`
 
-DNS anomaly detection, final JSON reports, and live capture are not required for the first MVP. YAML configuration is optional; omitting it preserves the original rule defaults.
+DNS anomaly detection was not required for the first MVP and is the first implemented v1.0 rule. Final JSON reports and live capture remain future work. YAML configuration is optional; omitting it preserves the rule defaults.
 
 ## Implemented MVP Data Flow
 
@@ -134,6 +134,8 @@ The implemented `DetectionRule` interface requires stable rule metadata (`rule_i
 
 `ConnectionBurstRule` detects one source sending more than 50 TCP SYN packets without ACK within an inclusive rolling 60-second window. It counts repeated attempts separately across all destinations and ports. Its evidence uses bounded destination summaries, and the optional YAML configuration can override its threshold and window or disable it.
 
+`DNSAnomalyRule` evaluates normalized DNS queries by source IP. It detects more than 30 queries or more than 20 unique domains in an inclusive rolling 60-second window, plus normalized domain names longer than 70 characters. Query and unique-domain alert states suppress repeated alerts until expiry returns below their thresholds. Identical long-domain queries are suppressed until that domain has been absent from the active window. The rule uses one stable rule ID and records the anomaly subtype in structured evidence.
+
 First MVP rules:
 
 - Port scan detection: implemented
@@ -141,7 +143,7 @@ First MVP rules:
 
 v1.0 rule:
 
-- DNS anomaly detection
+- DNS anomaly detection: implemented
 
 Rules should include enough evidence in alerts to explain why they fired, such as source IP, destination IP, observed count, threshold, and time window.
 
@@ -191,9 +193,9 @@ Console presentation does not calculate engine statistics, write files, parse CL
 
 Module: `mini_ids/config.py`
 
-The configuration layer loads optional YAML into frozen `AppConfig`, `PortScanConfig`, and `ConnectionBurstConfig` dataclasses. Missing sections and fields use defaults equivalent to the rule constructors. Explicit validation rejects malformed YAML, unknown sections or fields, incorrect types, non-positive thresholds and windows, and non-finite windows.
+The configuration layer loads optional YAML into frozen `AppConfig`, `PortScanConfig`, `ConnectionBurstConfig`, and `DNSAnomalyConfig` dataclasses. Missing sections and fields use defaults equivalent to the rule constructors. Explicit validation rejects malformed YAML, unknown sections or fields, incorrect types, non-positive thresholds and windows, and non-finite windows.
 
-`build_rules()` is the single configured rule-construction path. It emits enabled rules in deterministic port-scan then connection-burst order and omits disabled rules. Configuration does not contain placeholders for DNS, reporting, or live capture.
+`build_rules()` is the single configured rule-construction path. It emits enabled rules in deterministic port-scan, connection-burst, then DNS-anomaly order and omits disabled rules. Configuration does not contain placeholders for reporting or live capture.
 
 ### Reporter
 
@@ -213,7 +215,7 @@ The Typer CLI is the user-facing coordinator. It provides one offline analysis c
 python -m mini_ids.cli analyze --pcap pcaps/sample.pcap
 ```
 
-The command preserves parser and alert order, keeps `OTHER` packets, skips parser results of `None`, and reports statistics only for `PacketInfo` objects passed to the engine. Optional `--packet-log` and `--alert-log` paths write JSONL with explicit overwrite behavior. Optional `--config` loads validated YAML before rule construction; omitting it uses both default rules.
+The command preserves parser and alert order, keeps `OTHER` packets, skips parser results of `None`, and reports statistics only for `PacketInfo` objects passed to the engine. Optional `--packet-log` and `--alert-log` paths write JSONL with explicit overwrite behavior. Optional `--config` loads validated YAML before rule construction; omitting it uses all three default rules.
 
 Expected capture, configuration, and output-path errors are presented without tracebacks and return a non-zero exit code. Unexpected processing errors propagate. A configured run uses the same command with `--config`:
 
@@ -225,7 +227,6 @@ python -m mini_ids.cli analyze --pcap pcaps/sample.pcap --config examples/config
 
 After the MVP works, v1.0 should add:
 
-- DNS anomaly detection
 - Traffic summaries
 - JSON analysis reports
 - Optional live capture mode
@@ -280,7 +281,7 @@ flowchart TD
 
 - Offline PCAP analysis is the first supported mode because it is safer, easier to test, and easier to demo.
 - Live capture is non-MVP and should be added only after the offline workflow is reliable.
-- DNS anomaly detection belongs to v1.0, not the first MVP.
+- DNS anomaly detection is the first implemented v1.0 rule.
 - Configuration is optional, strict, and limited to implemented rules.
 - Detection rules should process normalized `PacketInfo` objects, not raw Scapy packets.
 - Alerts should be structured data, not plain strings.
@@ -289,4 +290,4 @@ flowchart TD
 
 ## Development Setup
 
-Development dependencies are listed in `requirements.txt`. Use a local virtual environment and run `python -m pytest` from the repository root to verify the current smoke test.
+Development dependencies are listed in `requirements.txt`. Use a local virtual environment and run `python -m pytest` from the repository root to verify the full suite.

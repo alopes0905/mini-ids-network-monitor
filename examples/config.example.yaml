@@ -16,3 +16,14 @@ rules:
     enabled: true
     connection_threshold: 50
     time_window_seconds: 60
+
+  # DNS anomaly detection evaluates query volume, unique-domain volume, and
+  # normalized domain length per source. Conditions are greater than their
+  # thresholds: defaults alert on query 31, unique domain 21, or length 71.
+  dns_anomaly:
+    # Set enabled to false to omit this rule from analysis.
+    enabled: true
+    query_threshold: 30
+    unique_domain_threshold: 20
+    long_domain_threshold: 70
+    time_window_seconds: 60

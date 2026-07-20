@@ -77,9 +77,52 @@ Unlike vertical port-scan detection, this rule aggregates all qualifying attempt
 
 The threshold and window can be changed through the optional YAML configuration, and the rule can be disabled.
 
+## DNS Anomaly Detection
+
+Status: implemented.
+
+Class: `mini_ids.rules.DNSAnomalyRule`
+
+Default constructor values:
+
+```python
+DNSAnomalyRule(
+    query_threshold=30,
+    unique_domain_threshold=20,
+    long_domain_threshold=70,
+    time_window_seconds=60,
+)
+```
+
+The rule uses one stable ID, `DNS_ANOMALY_001`. Each alert's `anomaly_type` evidence field identifies `query_burst`, `unique_domain_burst`, or `long_domain`.
+
+### Detection Semantics
+
+A packet qualifies only when its protocol is `DNS` and it has a non-empty query, source IP, and usable timestamp. Queries are grouped by source IP. Names are normalized by lowercasing them and removing one trailing dot; an empty normalized result is ignored. Public-suffix processing, IDN enrichment, entropy scoring, allowlists, suspicious-TLD lists, and threat-intelligence lookups are intentionally outside this rule.
+
+The three independent checks are:
+
+- **Query burst:** more than 30 qualifying queries in an inclusive rolling 60-second window. Repeated names count separately. Thirty queries do not alert; query 31 alerts.
+- **Unique-domain burst:** more than 20 distinct normalized names in the same window. Repeated normalized names count once. Twenty domains do not alert; domain 21 alerts.
+- **Long domain:** normalized length greater than 70 characters. Length 70 does not alert; length 71 alerts.
+
+Queries exactly 60 seconds old remain active; older observations expire. Out-of-order timestamps older than the latest qualifying query from that source are ignored. Query-burst and unique-domain alerts are independently suppressed while their counts remain above threshold and re-arm when expiry returns the relevant count to the threshold or below.
+
+For long domains, one alert is emitted per normalized name and source while that same name remains in the active window. Repeats refresh its last-seen time. The name re-arms after it has been absent for more than the configured window.
+
+### Alert Evidence
+
+Query-burst evidence includes the source IP, active query count, configured threshold and window, and first and latest active timestamps. Unique-domain evidence includes the source IP, active distinct count, threshold and window, and a deterministic sorted sample of at most five names. Long-domain evidence includes the source IP, normalized name, measured length, and threshold. Evidence contains metadata only, not raw DNS payloads.
+
+All three variants use `MEDIUM` severity and the contextual MITRE ATT&CK mapping `T1071.004 - Application Layer Protocol: DNS`. This mapping does not establish command-and-control or DNS tunneling. The recommendation is to inspect the source host, review resolver logs, and correlate activity with endpoint and network telemetry.
+
+### Limitations and False Positives
+
+Browsers, operating systems, security tools, service discovery, CDNs, development environments, automated tests, and legitimate long service names can trigger these heuristics. High query volume, high domain diversity, or a long name is anomalous metadata, not proof of malicious behavior.
+
 ## Rule Configuration
 
-Configuration is optional. Without a file, both rules retain the constructor defaults documented above. The supported YAML structure is:
+Configuration is optional. Without a file, all three rules retain the constructor defaults documented above. The supported YAML structure is:
 
 ```yaml
 rules:
@@ -92,12 +135,13 @@ rules:
     enabled: true
     connection_threshold: 50
     time_window_seconds: 60
+
+  dns_anomaly:
+    enabled: true
+    query_threshold: 30
+    unique_domain_threshold: 20
+    long_domain_threshold: 70
+    time_window_seconds: 60
 ```
 
 Missing sections or fields retain defaults. Set `enabled: false` to omit a rule. Threshold semantics do not change when configured: alerts occur only when the observed value is greater than the threshold. Unknown fields and invalid values are rejected rather than ignored or coerced.
-
-Only the two implemented rules are configurable. DNS anomaly configuration will be added only when that rule exists.
-
-## Planned Rules
-
-- DNS anomaly detection: not implemented

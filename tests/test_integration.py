@@ -3,16 +3,16 @@ from io import StringIO
 from pathlib import Path
 
 from rich.console import Console
-from scapy.all import Ether, IP, TCP, wrpcap
+from scapy.all import DNS, DNSQR, Ether, IP, TCP, UDP, wrpcap
 from scapy.packet import Packet
 
 from mini_ids.capture import read_pcap
+from mini_ids.config import build_rules, load_config
 from mini_ids.console import print_alerts, print_summary
 from mini_ids.engine import DetectionEngine
 from mini_ids.logger import write_alerts_jsonl, write_packets_jsonl
 from mini_ids.models import PacketInfo
 from mini_ids.parser import parse_packet
-from mini_ids.rules import ConnectionBurstRule, PortScanRule
 
 
 BASE_TIMESTAMP = 1_720_000_000.0
@@ -31,6 +31,15 @@ def make_combined_detection_packets() -> list[Packet]:
             )
         )
         packet.time = BASE_TIMESTAMP + index
+        packets.append(packet)
+    for index in range(31):
+        packet = (
+            Ether(src="02:00:00:00:00:03", dst="02:00:00:00:00:04")
+            / IP(src="192.0.2.90", dst="198.51.100.53")
+            / UDP(sport=53000, dport=53)
+            / DNS(rd=1, qd=DNSQR(qname="repeated.example"))
+        )
+        packet.time = BASE_TIMESTAMP + 60 + index
         packets.append(packet)
     return packets
 
@@ -55,7 +64,7 @@ def test_public_offline_pipeline_detects_logs_and_displays_results(
         for raw_packet in read_pcap(pcap_path)
         if (parsed := parse_packet(raw_packet)) is not None
     ]
-    engine = DetectionEngine([PortScanRule(), ConnectionBurstRule()])
+    engine = DetectionEngine(build_rules(load_config()))
     alerts = engine.process_packets(parsed_packets)
     summary = engine.get_summary()
     write_packets_jsonl(parsed_packets, packet_log, append=False)
@@ -68,22 +77,24 @@ def test_public_offline_pipeline_detects_logs_and_displays_results(
     packet_records = read_jsonl(packet_log)
     alert_records = read_jsonl(alert_log)
     assert all(isinstance(packet, PacketInfo) for packet in parsed_packets)
-    assert len(packet_records) == len(parsed_packets) == 51
+    assert len(packet_records) == len(parsed_packets) == 82
     assert [record["rule_id"] for record in alert_records] == [
         "PORT_SCAN_001",
         "CONNECTION_BURST_001",
+        "DNS_ANOMALY_001",
     ]
     assert summary == {
-        "packets_processed": 51,
-        "alerts_generated": 2,
+        "packets_processed": 82,
+        "alerts_generated": 3,
         "severity_counts": {
             "LOW": 0,
-            "MEDIUM": 2,
+            "MEDIUM": 3,
             "HIGH": 0,
             "CRITICAL": 0,
         },
     }
     output = stream.getvalue()
     assert output.index("PORT_SCAN_001") < output.index("CONNECTION_BURST_001")
+    assert output.index("CONNECTION_BURST_001") < output.index("DNS_ANOMALY_001")
     assert "Packets processed" in output
     assert "Alerts generated" in output

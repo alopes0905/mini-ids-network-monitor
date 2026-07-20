@@ -9,7 +9,12 @@ from pathlib import Path
 
 import yaml
 
-from mini_ids.rules import ConnectionBurstRule, DetectionRule, PortScanRule
+from mini_ids.rules import (
+    ConnectionBurstRule,
+    DetectionRule,
+    DNSAnomalyRule,
+    PortScanRule,
+)
 
 
 class ConfigError(ValueError):
@@ -84,6 +89,45 @@ class ConnectionBurstConfig:
 
 
 @dataclass(frozen=True)
+class DNSAnomalyConfig:
+    """Normalized settings for DNS anomaly detection."""
+
+    enabled: bool = True
+    query_threshold: int = 30
+    unique_domain_threshold: int = 20
+    long_domain_threshold: int = 70
+    time_window_seconds: float = 60.0
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "enabled",
+            _require_boolean(self.enabled, "rules.dns_anomaly.enabled"),
+        )
+        for field_name in (
+            "query_threshold",
+            "unique_domain_threshold",
+            "long_domain_threshold",
+        ):
+            object.__setattr__(
+                self,
+                field_name,
+                _require_positive_integer(
+                    getattr(self, field_name),
+                    f"rules.dns_anomaly.{field_name}",
+                ),
+            )
+        object.__setattr__(
+            self,
+            "time_window_seconds",
+            _require_positive_number(
+                self.time_window_seconds,
+                "rules.dns_anomaly.time_window_seconds",
+            ),
+        )
+
+
+@dataclass(frozen=True)
 class AppConfig:
     """Normalized configuration for all currently implemented rules."""
 
@@ -91,6 +135,7 @@ class AppConfig:
     connection_burst: ConnectionBurstConfig = field(
         default_factory=ConnectionBurstConfig
     )
+    dns_anomaly: DNSAnomalyConfig = field(default_factory=DNSAnomalyConfig)
 
 
 def _require_mapping(value: object, field_name: str) -> Mapping[object, object]:
@@ -178,6 +223,41 @@ def _load_connection_burst_config(values: object) -> ConnectionBurstConfig:
     )
 
 
+def _load_dns_anomaly_config(values: object) -> DNSAnomalyConfig:
+    section = _require_mapping(values, "rules.dns_anomaly")
+    _reject_unknown_fields(
+        section,
+        {
+            "enabled",
+            "query_threshold",
+            "unique_domain_threshold",
+            "long_domain_threshold",
+            "time_window_seconds",
+        },
+        "rules.dns_anomaly",
+    )
+    defaults = DNSAnomalyConfig()
+    return DNSAnomalyConfig(
+        enabled=section.get("enabled", defaults.enabled),  # type: ignore[arg-type]
+        query_threshold=section.get(  # type: ignore[arg-type]
+            "query_threshold",
+            defaults.query_threshold,
+        ),
+        unique_domain_threshold=section.get(  # type: ignore[arg-type]
+            "unique_domain_threshold",
+            defaults.unique_domain_threshold,
+        ),
+        long_domain_threshold=section.get(  # type: ignore[arg-type]
+            "long_domain_threshold",
+            defaults.long_domain_threshold,
+        ),
+        time_window_seconds=section.get(  # type: ignore[arg-type]
+            "time_window_seconds",
+            defaults.time_window_seconds,
+        ),
+    )
+
+
 def _parse_config(data: object) -> AppConfig:
     if data is None:
         return AppConfig()
@@ -191,7 +271,7 @@ def _parse_config(data: object) -> AppConfig:
     rules = _require_mapping(root["rules"], "rules")
     _reject_unknown_fields(
         rules,
-        {"port_scan", "connection_burst"},
+        {"port_scan", "connection_burst", "dns_anomaly"},
         "rules",
     )
     return AppConfig(
@@ -204,6 +284,11 @@ def _parse_config(data: object) -> AppConfig:
             _load_connection_burst_config(rules["connection_burst"])
             if "connection_burst" in rules
             else ConnectionBurstConfig()
+        ),
+        dns_anomaly=(
+            _load_dns_anomaly_config(rules["dns_anomaly"])
+            if "dns_anomaly" in rules
+            else DNSAnomalyConfig()
         ),
     )
 
@@ -257,6 +342,19 @@ def build_rules(config: AppConfig) -> list[DetectionRule]:
                 time_window_seconds=(
                     config.connection_burst.time_window_seconds
                 ),
+            )
+        )
+    if config.dns_anomaly.enabled:
+        rules.append(
+            DNSAnomalyRule(
+                query_threshold=config.dns_anomaly.query_threshold,
+                unique_domain_threshold=(
+                    config.dns_anomaly.unique_domain_threshold
+                ),
+                long_domain_threshold=(
+                    config.dns_anomaly.long_domain_threshold
+                ),
+                time_window_seconds=config.dns_anomaly.time_window_seconds,
             )
         )
     return rules

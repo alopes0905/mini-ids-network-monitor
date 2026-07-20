@@ -8,11 +8,12 @@ from mini_ids.config import (
     AppConfig,
     ConfigError,
     ConnectionBurstConfig,
+    DNSAnomalyConfig,
     PortScanConfig,
     build_rules,
     load_config,
 )
-from mini_ids.rules import ConnectionBurstRule, PortScanRule
+from mini_ids.rules import ConnectionBurstRule, DNSAnomalyRule, PortScanRule
 
 
 EXAMPLE_CONFIG = Path("examples/config.example.yaml")
@@ -51,6 +52,13 @@ def test_full_valid_configuration_is_normalized(tmp_path: Path) -> None:
                     "connection_threshold": 75,
                     "time_window_seconds": 90,
                 },
+                "dns_anomaly": {
+                    "enabled": False,
+                    "query_threshold": 12,
+                    "unique_domain_threshold": 8,
+                    "long_domain_threshold": 50,
+                    "time_window_seconds": 45,
+                },
             }
         },
     )
@@ -68,6 +76,13 @@ def test_full_valid_configuration_is_normalized(tmp_path: Path) -> None:
             connection_threshold=75,
             time_window_seconds=90.0,
         ),
+        dns_anomaly=DNSAnomalyConfig(
+            enabled=False,
+            query_threshold=12,
+            unique_domain_threshold=8,
+            long_domain_threshold=50,
+            time_window_seconds=45.0,
+        ),
     )
 
 
@@ -83,6 +98,18 @@ def test_partial_configuration_uses_defaults_for_omitted_values(
 
     assert config.port_scan == PortScanConfig(port_threshold=4)
     assert config.connection_burst == ConnectionBurstConfig()
+    assert config.dns_anomaly == DNSAnomalyConfig()
+
+
+def test_partial_dns_configuration_uses_defaults(tmp_path: Path) -> None:
+    path = write_config(
+        tmp_path,
+        {"rules": {"dns_anomaly": {"query_threshold": 8}}},
+    )
+
+    config = load_config(path)
+
+    assert config.dns_anomaly == DNSAnomalyConfig(query_threshold=8)
 
 
 def test_string_and_path_inputs_are_supported(tmp_path: Path) -> None:
@@ -109,6 +136,11 @@ def test_direct_config_construction_enforces_validation() -> None:
         match="rules.connection_burst.time_window_seconds",
     ):
         ConnectionBurstConfig(time_window_seconds=float("inf"))
+    with pytest.raises(
+        ConfigError,
+        match="rules.dns_anomaly.long_domain_threshold",
+    ):
+        DNSAnomalyConfig(long_domain_threshold=True)  # type: ignore[arg-type]
 
 
 def test_example_configuration_is_valid_and_matches_defaults() -> None:
@@ -119,6 +151,7 @@ def test_default_config_matches_current_rule_constructor_defaults() -> None:
     config = load_config()
     port_rule = PortScanRule()
     burst_rule = ConnectionBurstRule()
+    dns_rule = DNSAnomalyRule()
 
     assert config.port_scan.port_threshold == port_rule.port_threshold
     assert config.port_scan.time_window_seconds == port_rule.time_window_seconds
@@ -129,6 +162,19 @@ def test_default_config_matches_current_rule_constructor_defaults() -> None:
     assert (
         config.connection_burst.time_window_seconds
         == burst_rule.time_window_seconds
+    )
+    assert config.dns_anomaly.query_threshold == dns_rule.query_threshold
+    assert (
+        config.dns_anomaly.unique_domain_threshold
+        == dns_rule.unique_domain_threshold
+    )
+    assert (
+        config.dns_anomaly.long_domain_threshold
+        == dns_rule.long_domain_threshold
+    )
+    assert (
+        config.dns_anomaly.time_window_seconds
+        == dns_rule.time_window_seconds
     )
 
 
@@ -142,6 +188,12 @@ def test_build_rules_preserves_order_and_passes_configured_values() -> None:
             connection_threshold=7,
             time_window_seconds=25.5,
         ),
+        dns_anomaly=DNSAnomalyConfig(
+            query_threshold=9,
+            unique_domain_threshold=6,
+            long_domain_threshold=40,
+            time_window_seconds=35.5,
+        ),
     )
 
     rules = build_rules(config)
@@ -149,6 +201,7 @@ def test_build_rules_preserves_order_and_passes_configured_values() -> None:
     assert [type(rule) for rule in rules] == [
         PortScanRule,
         ConnectionBurstRule,
+        DNSAnomalyRule,
     ]
     port_rule = rules[0]
     burst_rule = rules[1]
@@ -158,6 +211,12 @@ def test_build_rules_preserves_order_and_passes_configured_values() -> None:
     assert isinstance(burst_rule, ConnectionBurstRule)
     assert burst_rule.connection_threshold == 7
     assert burst_rule.time_window_seconds == 25.5
+    dns_rule = rules[2]
+    assert isinstance(dns_rule, DNSAnomalyRule)
+    assert dns_rule.query_threshold == 9
+    assert dns_rule.unique_domain_threshold == 6
+    assert dns_rule.long_domain_threshold == 40
+    assert dns_rule.time_window_seconds == 35.5
 
 
 @pytest.mark.parametrize(
@@ -165,18 +224,30 @@ def test_build_rules_preserves_order_and_passes_configured_values() -> None:
     [
         (
             AppConfig(port_scan=PortScanConfig(enabled=False)),
-            [ConnectionBurstRule],
+            [ConnectionBurstRule, DNSAnomalyRule],
         ),
         (
             AppConfig(
                 connection_burst=ConnectionBurstConfig(enabled=False)
             ),
-            [PortScanRule],
+            [PortScanRule, DNSAnomalyRule],
         ),
         (
             AppConfig(
                 port_scan=PortScanConfig(enabled=False),
                 connection_burst=ConnectionBurstConfig(enabled=False),
+            ),
+            [DNSAnomalyRule],
+        ),
+        (
+            AppConfig(dns_anomaly=DNSAnomalyConfig(enabled=False)),
+            [PortScanRule, ConnectionBurstRule],
+        ),
+        (
+            AppConfig(
+                port_scan=PortScanConfig(enabled=False),
+                connection_burst=ConnectionBurstConfig(enabled=False),
+                dns_anomaly=DNSAnomalyConfig(enabled=False),
             ),
             [],
         ),
@@ -250,7 +321,7 @@ def test_non_mapping_yaml_root_is_rejected(tmp_path: Path, root: object) -> None
     ("data", "message"),
     [
         ({"general": {}}, "configuration root.*general"),
-        ({"rules": {"dns_anomaly": {}}}, "rules.*dns_anomaly"),
+        ({"rules": {"unknown_rule": {}}}, "rules.*unknown_rule"),
         (
             {"rules": {"port_scan": {"unexpected": 1}}},
             "rules.port_scan.*unexpected",
@@ -258,6 +329,10 @@ def test_non_mapping_yaml_root_is_rejected(tmp_path: Path, root: object) -> None
         (
             {"rules": {"connection_burst": {"unexpected": 1}}},
             "rules.connection_burst.*unexpected",
+        ),
+        (
+            {"rules": {"dns_anomaly": {"unexpected": 1}}},
+            "rules.dns_anomaly.*unexpected",
         ),
     ],
 )
@@ -272,7 +347,10 @@ def test_unknown_fields_are_rejected(
         load_config(path)
 
 
-@pytest.mark.parametrize("section", ["port_scan", "connection_burst"])
+@pytest.mark.parametrize(
+    "section",
+    ["port_scan", "connection_burst", "dns_anomaly"],
+)
 @pytest.mark.parametrize("value", [1, "true"])
 def test_enabled_must_be_boolean(
     tmp_path: Path,
@@ -293,6 +371,9 @@ def test_enabled_must_be_boolean(
     [
         ("port_scan", "port_threshold"),
         ("connection_burst", "connection_threshold"),
+        ("dns_anomaly", "query_threshold"),
+        ("dns_anomaly", "unique_domain_threshold"),
+        ("dns_anomaly", "long_domain_threshold"),
     ],
 )
 @pytest.mark.parametrize("value", [True, "10", 0, -1, 1.5])
@@ -311,7 +392,10 @@ def test_thresholds_must_be_positive_integers(
         load_config(path)
 
 
-@pytest.mark.parametrize("section", ["port_scan", "connection_burst"])
+@pytest.mark.parametrize(
+    "section",
+    ["port_scan", "connection_burst", "dns_anomaly"],
+)
 @pytest.mark.parametrize(
     "value",
     ["60", True, 0, -1, float("inf"), float("nan")],
