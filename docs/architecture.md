@@ -20,12 +20,12 @@ Implemented so far:
 - Vertical TCP SYN port-scan detection
 - TCP connection-burst detection by source IP
 - Independent packet and alert JSONL persistence
+- Rich terminal presentation for alerts and engine summaries
 
 Not implemented yet:
 
 - DNS anomaly detection
 - CLI commands
-- Console formatting
 - Reporting
 - Configuration loading
 - Live capture
@@ -53,6 +53,7 @@ MVP components:
 - Detection Rules for port scan and connection burst behavior
 - `Alert` data model
 - Logger for JSONL alert output
+- Console presenter for alerts and engine summaries
 - Basic CLI for `analyze --pcap`
 
 DNS anomaly detection, configuration files, final JSON reports, and live capture are not required for the first MVP.
@@ -176,7 +177,15 @@ The logger writes structured output, starting with JSON Lines alert logs. Loggin
 
 The implemented JSONL writer persists `PacketInfo` and `Alert` records independently by reusing their model serialization. It writes UTF-8, creates parent directories, appends by default, and supports explicit overwrite mode. Each low-level function writes to the caller-provided path; filename generation belongs to future orchestration.
 
-The logger is not yet connected to a CLI or complete PCAP analysis workflow. Console formatting, traffic summaries, and aggregate JSON reports remain separate future components.
+The logger is not yet connected to a CLI or complete PCAP analysis workflow. Console presentation is implemented separately, while traffic summaries and aggregate JSON reports remain future components.
+
+### Console Presenter
+
+Module: `mini_ids/console.py`
+
+The console presenter renders individual alerts, ordered alert collections, and detection-engine summaries through Rich. Severity-aware styling improves scanning while labels keep output understandable when color is unavailable. Optional alert fields are omitted when absent, and evidence is bounded before display.
+
+Console presentation does not calculate engine statistics, write files, parse CLI arguments, or coordinate packet analysis. JSONL persistence remains in `mini_ids/logger.py`; the future CLI will decide when to invoke each output layer.
 
 ### Reporter
 
@@ -246,7 +255,8 @@ flowchart TD
     F --> G[Detection Rules]
     G --> H[Alert Model]
     H --> I[JSONL Logger]
-    H --> J[Terminal Summary]
+    H --> J[Rich Console Presenter]
+    F --> J
     H --> K[Reporter - v1.0]
 
     L[Live Capture - non-MVP] -. later .-> B

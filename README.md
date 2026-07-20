@@ -2,7 +2,7 @@
 
 Mini IDS is a defensive, passive, educational network security monitor written in Python. The project is intended to analyze offline PCAP files, extract packet metadata, detect simple suspicious behavior, and produce structured alerts and reports as it grows.
 
-This repository is in the early detection implementation stage. It can read and parse offline PCAP packets, detect vertical TCP port scans and high-volume TCP connection bursts, and persist normalized packets and alerts as JSONL records. DNS anomaly detection, console formatting, CLI commands, configuration loading, aggregate reporting, and full PCAP analysis orchestration have not been implemented yet.
+This repository is in the early detection implementation stage. It can read and parse offline PCAP packets, detect vertical TCP port scans and high-volume TCP connection bursts, persist normalized packets and alerts as JSONL records, and render alerts and engine summaries with Rich. DNS anomaly detection, CLI commands, configuration loading, aggregate reporting, and full PCAP analysis orchestration have not been implemented yet.
 
 ## Project Vision
 
@@ -38,6 +38,7 @@ The first functional MVP should include:
 - Port scan detection
 - Connection burst detection
 - JSONL alert logging
+- Human-readable terminal output
 - Basic CLI command
 - Basic unit tests
 
@@ -56,7 +57,7 @@ The first complete version should add:
 
 ## Repository Status
 
-Current stage: Issue #9 structured JSONL logging.
+Current stage: Issue #10 human-readable console output.
 
 Implemented now:
 
@@ -75,6 +76,7 @@ Implemented now:
 - Vertical TCP SYN port-scan detection
 - TCP connection-burst detection by source IP
 - Independent packet and alert JSONL persistence
+- Rich terminal presentation for alerts and engine summaries
 - Standard project folders
 - Python `.gitignore`
 - Initial `requirements.txt`
@@ -85,7 +87,6 @@ Not implemented yet:
 
 - Complete PCAP analysis orchestration
 - DNS anomaly detection
-- Console formatting
 - CLI logic
 - Configuration loading
 - Traffic summaries and aggregate reports
@@ -144,7 +145,7 @@ Run the current test suite:
 python -m pytest
 ```
 
-At this stage, the test suite covers the implemented models, PCAP reader, packet parser, mock packet data, rule interface, detection engine, both detection rules, and JSONL persistence.
+At this stage, the test suite covers the implemented models, PCAP reader, packet parser, mock packet data, rule interface, detection engine, both detection rules, JSONL persistence, and console presentation.
 
 ## Usage
 
