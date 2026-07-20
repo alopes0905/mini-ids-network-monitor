@@ -2,12 +2,14 @@ import json
 from pathlib import Path
 
 import pytest
+import yaml
 from scapy.all import Ether, IP, Raw, TCP, wrpcap
 from scapy.packet import Packet
 from scapy.utils import PcapWriter
 from typer.testing import CliRunner
 
-from mini_ids.cli import _create_default_engine, app
+from mini_ids.cli import app
+from mini_ids.config import build_rules, load_config
 from mini_ids.rules import ConnectionBurstRule, PortScanRule
 
 
@@ -23,6 +25,12 @@ def write_empty_pcap(path: Path) -> None:
     writer = PcapWriter(str(path), linktype=1, sync=True)
     writer.write_header(None)
     writer.close()
+
+
+def write_config(tmp_path: Path, data: object) -> Path:
+    path = tmp_path / "config.yaml"
+    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    return path
 
 
 def make_tcp_packet(
@@ -94,6 +102,7 @@ def test_analyze_help_documents_required_and_optional_paths() -> None:
     assert "required" in result.output.lower()
     assert "--packet-log" in result.output
     assert "--alert-log" in result.output
+    assert "--config" in result.output
 
 
 def test_valid_synthetic_pcap_is_parsed_and_processed(tmp_path: Path) -> None:
@@ -164,6 +173,205 @@ def test_both_rules_can_alert_in_one_analysis(tmp_path: Path) -> None:
     assert "Packets processed" in result.output
     assert "62" in result.output
     assert "Alerts generated" in result.output
+
+
+def test_valid_configuration_is_accepted(tmp_path: Path) -> None:
+    pcap_path = tmp_path / "normal.pcap"
+    config_path = write_config(
+        tmp_path,
+        {
+            "rules": {
+                "port_scan": {
+                    "enabled": True,
+                    "port_threshold": 10,
+                    "time_window_seconds": 60,
+                },
+                "connection_burst": {
+                    "enabled": True,
+                    "connection_threshold": 50,
+                    "time_window_seconds": 60,
+                },
+            }
+        },
+    )
+    write_pcap(pcap_path, [make_tcp_packet(flags="PA")])
+
+    result = runner.invoke(
+        app,
+        [
+            "analyze",
+            "--pcap",
+            str(pcap_path),
+            "--config",
+            str(config_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Packets processed" in result.output
+    assert "No alerts generated." in result.output
+
+
+def test_custom_port_threshold_changes_detection_behavior(tmp_path: Path) -> None:
+    pcap_path = tmp_path / "short-port-scan.pcap"
+    config_path = write_config(
+        tmp_path,
+        {"rules": {"port_scan": {"port_threshold": 2}}},
+    )
+    write_pcap(pcap_path, make_port_scan_packets()[:3])
+
+    result = runner.invoke(
+        app,
+        [
+            "analyze",
+            "--pcap",
+            str(pcap_path),
+            "--config",
+            str(config_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "PORT_SCAN_001" in result.output
+    assert "CONNECTION_BURST_001" not in result.output
+
+
+def test_custom_connection_threshold_changes_detection_behavior(
+    tmp_path: Path,
+) -> None:
+    pcap_path = tmp_path / "short-connection-burst.pcap"
+    config_path = write_config(
+        tmp_path,
+        {"rules": {"connection_burst": {"connection_threshold": 2}}},
+    )
+    write_pcap(pcap_path, make_connection_burst_packets()[:3])
+
+    result = runner.invoke(
+        app,
+        [
+            "analyze",
+            "--pcap",
+            str(pcap_path),
+            "--config",
+            str(config_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "CONNECTION_BURST_001" in result.output
+    assert "PORT_SCAN_001" not in result.output
+
+
+@pytest.mark.parametrize("disabled_rule", ["port_scan", "connection_burst"])
+def test_disabling_one_rule_prevents_its_alert(
+    tmp_path: Path,
+    disabled_rule: str,
+) -> None:
+    pcap_path = tmp_path / f"disabled-{disabled_rule}.pcap"
+    config_path = write_config(
+        tmp_path,
+        {"rules": {disabled_rule: {"enabled": False}}},
+    )
+    packets = (
+        make_port_scan_packets()
+        if disabled_rule == "port_scan"
+        else make_connection_burst_packets()
+    )
+    write_pcap(pcap_path, packets)
+
+    result = runner.invoke(
+        app,
+        [
+            "analyze",
+            "--pcap",
+            str(pcap_path),
+            "--config",
+            str(config_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    rule_id = (
+        "PORT_SCAN_001"
+        if disabled_rule == "port_scan"
+        else "CONNECTION_BURST_001"
+    )
+    assert rule_id not in result.output
+    assert "No alerts generated." in result.output
+
+
+def test_disabling_all_rules_still_processes_packets(tmp_path: Path) -> None:
+    pcap_path = tmp_path / "all-disabled.pcap"
+    config_path = write_config(
+        tmp_path,
+        {
+            "rules": {
+                "port_scan": {"enabled": False},
+                "connection_burst": {"enabled": False},
+            }
+        },
+    )
+    write_pcap(
+        pcap_path,
+        [*make_port_scan_packets(), *make_connection_burst_packets()],
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "analyze",
+            "--pcap",
+            str(pcap_path),
+            "--config",
+            str(config_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "No alerts generated." in result.output
+    assert "Packets processed" in result.output
+    assert "62" in result.output
+    assert "Alerts generated" in result.output
+
+
+@pytest.mark.parametrize(
+    ("config_kind", "expected_message"),
+    [
+        ("missing", "Configuration file not found"),
+        ("malformed", "Unable to parse YAML configuration"),
+        ("invalid", "rules.port_scan.port_threshold"),
+    ],
+)
+def test_configuration_errors_exit_cleanly(
+    tmp_path: Path,
+    config_kind: str,
+    expected_message: str,
+) -> None:
+    pcap_path = tmp_path / "normal.pcap"
+    config_path = tmp_path / "config.yaml"
+    write_pcap(pcap_path, [make_tcp_packet(flags="PA")])
+    if config_kind == "malformed":
+        config_path.write_text("rules:\n  port_scan: [\n", encoding="utf-8")
+    elif config_kind == "invalid":
+        config_path = write_config(
+            tmp_path,
+            {"rules": {"port_scan": {"port_threshold": 0}}},
+        )
+
+    result = runner.invoke(
+        app,
+        [
+            "analyze",
+            "--pcap",
+            str(pcap_path),
+            "--config",
+            str(config_path),
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert expected_message in result.output
+    assert "Traceback" not in result.output
 
 
 def test_packet_log_contains_one_record_per_parsed_packet(tmp_path: Path) -> None:
@@ -395,19 +603,19 @@ def test_unexpected_processing_errors_are_not_swallowed(
 
 
 def test_default_engine_registers_only_current_rules() -> None:
-    engine = _create_default_engine()
+    rules = build_rules(load_config())
 
-    assert [type(rule) for rule in engine.rules] == [
+    assert [type(rule) for rule in rules] == [
         PortScanRule,
         ConnectionBurstRule,
     ]
 
 
-def test_cli_does_not_expose_future_config_or_live_features() -> None:
+def test_cli_does_not_expose_future_dns_or_live_features() -> None:
     app_help = runner.invoke(app, ["--help"])
     analyze_help = runner.invoke(app, ["analyze", "--help"])
 
     assert app_help.exit_code == 0
     assert analyze_help.exit_code == 0
     assert "live" not in app_help.output.lower()
-    assert "--config" not in analyze_help.output
+    assert "dns" not in analyze_help.output.lower()

@@ -1,12 +1,13 @@
 # Testing Report
 
-This report records the Mini IDS testing state after the Issue #21 MVP test-hardening pass. It is a development snapshot, not a claim of production readiness or complete security validation.
+This report records the Mini IDS testing state after the Issue #17 configuration pass. It is a development snapshot, not a claim of production readiness or complete security validation.
 
 ## Tools and Environment
 
 - Python 3.13.0
 - `pytest` 9.1.1
 - `pytest-cov` 7.1.0 and `coverage.py` for statement coverage
+- PyYAML for configuration loading and parser-error tests
 - Scapy-generated packets and PCAP files for deterministic network inputs
 - Typer `CliRunner` for command-line tests
 - Rich consoles backed by `StringIO` for terminal-output assertions
@@ -32,12 +33,12 @@ python3 -m pytest --cov=mini_ids --cov-report=term-missing
 
 Results measured on 2026-07-20:
 
-- Collected test cases: **200**
-- Passing test cases: **200**
+- Collected test cases: **261**
+- Passing test cases: **261**
 - Overall statement coverage: **99%**
-- Covered statements: **527 of 534**
+- Covered statements: **629 of 636**
 
-The Issue #21 baseline was 173 passing tests and 95% statement coverage. The hardening pass added focused parser, model, capture, logger, rule-validation, and public-pipeline coverage without changing production code.
+The Issue #21 hardening pass established a 200-test, 99%-coverage baseline. Issue #17 added focused configuration validation, rule-construction, CLI integration, and error-handling coverage.
 
 ### Module Coverage
 
@@ -46,6 +47,7 @@ The Issue #21 baseline was 173 passing tests and 95% statement coverage. The har
 | `mini_ids/__init__.py` | 100% |
 | `mini_ids/capture.py` | 100% |
 | `mini_ids/cli.py` | 96% |
+| `mini_ids/config.py` | 100% |
 | `mini_ids/console.py` | 100% |
 | `mini_ids/engine.py` | 100% |
 | `mini_ids/logger.py` | 100% |
@@ -65,6 +67,7 @@ The suite currently covers:
 - TCP, UDP, ICMP, DNS query, DNS response, `OTHER`, invalid timestamp, and unsupported parser inputs
 - Detection rule contracts, engine ordering, generators, statistics, state retention, resets, and exception propagation
 - Port-scan and connection-burst filtering, exact thresholds, rolling-window boundaries, expiry, re-arming, state isolation, input validation, evidence, and coexistence
+- YAML defaults and partial overrides, strict schema and value validation, immutable typed configuration, deterministic rule construction, rule enable/disable behavior, and clean CLI configuration errors
 - Packet and alert JSONL append/overwrite behavior, generators, empty outputs, newline escaping, directory creation, and filesystem failures
 - Rich alert and summary output, all severities, bounded evidence, optional fields, ordering, empty results, literal text, and non-mutation
 - CLI help, complete synthetic-PCAP analysis, both rules, `OTHER` packets, optional logs, overwrite behavior, output errors, and future-feature boundaries
@@ -76,7 +79,7 @@ The coverage pass does not force tests for branches that Scapy normalizes away i
 
 The coverage command imports `mini_ids.cli` through `CliRunner`, so it does not execute the two module-dispatch statements under `if __name__ == "__main__"`. CLI commands and help behavior are covered through Typer without asserting terminal layout byte for byte.
 
-Features that do not exist yet are not tested: YAML configuration, DNS anomaly detection rules, aggregate traffic summaries, final JSON reports, live capture, packaging entry points, and CI workflows.
+Features that do not exist yet are not tested: DNS anomaly detection rules, aggregate traffic summaries, final JSON reports, live capture, packaging entry points, and CI workflows.
 
 ## Limitations
 
@@ -90,7 +93,6 @@ Features that do not exist yet are not tested: YAML configuration, DNS anomaly d
 
 Future v1.0 work should add focused tests alongside each new feature:
 
-- Configuration schema, defaults, invalid values, and rule enable/disable behavior
 - DNS anomaly true-positive, false-positive, time-window, and malformed-domain cases
 - Traffic-summary and final-report consistency with engine results
 - Optional live-capture permission and platform boundaries without relying on public traffic

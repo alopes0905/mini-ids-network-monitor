@@ -41,7 +41,7 @@ Each alert includes:
 
 Legitimate vulnerability scanners, monitoring systems, inventory tools, and administrator diagnostics can contact many ports and trigger this rule. The rule reports suspicious-looking metadata and does not prove malicious intent.
 
-This first implementation detects vertical TCP SYN scanning only. It does not detect horizontal scanning, UDP scanning, established-connection traffic, payload behavior, or distributed scanning. Thresholds are constructor arguments until configuration loading is implemented.
+This first implementation detects vertical TCP SYN scanning only. It does not detect horizontal scanning, UDP scanning, established-connection traffic, payload behavior, or distributed scanning. The threshold and window can be changed through the optional YAML configuration, and the rule can be disabled.
 
 ## TCP Connection Burst
 
@@ -75,7 +75,28 @@ Possible causes include scanning, brute-force-like activity, worm-like behavior,
 
 Unlike vertical port-scan detection, this rule aggregates all qualifying attempts from one source across destinations and ports. It counts repeated attempts to the same target separately; the port-scan rule instead counts distinct ports for one source/destination pair.
 
-Thresholds are constructor arguments until configuration loading is implemented.
+The threshold and window can be changed through the optional YAML configuration, and the rule can be disabled.
+
+## Rule Configuration
+
+Configuration is optional. Without a file, both rules retain the constructor defaults documented above. The supported YAML structure is:
+
+```yaml
+rules:
+  port_scan:
+    enabled: true
+    port_threshold: 10
+    time_window_seconds: 60
+
+  connection_burst:
+    enabled: true
+    connection_threshold: 50
+    time_window_seconds: 60
+```
+
+Missing sections or fields retain defaults. Set `enabled: false` to omit a rule. Threshold semantics do not change when configured: alerts occur only when the observed value is greater than the threshold. Unknown fields and invalid values are rejected rather than ignored or coerced.
+
+Only the two implemented rules are configurable. DNS anomaly configuration will be added only when that rule exists.
 
 ## Planned Rules
 

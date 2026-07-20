@@ -1,0 +1,18 @@
+# Vertical TCP port-scan detection counts distinct destination ports for one
+# source/destination pair. The condition is greater than port_threshold, so the
+# default value of 10 alerts on the 11th distinct port within 60 seconds.
+rules:
+  port_scan:
+    # Set enabled to false to omit this rule from analysis.
+    enabled: true
+    port_threshold: 10
+    time_window_seconds: 60
+
+  # Connection-burst detection counts initial TCP SYN attempts from one source.
+  # The condition is greater than connection_threshold, so the default value of
+  # 50 alerts on the 51st attempt within 60 seconds.
+  connection_burst:
+    # Set enabled to false to omit this rule from analysis.
+    enabled: true
+    connection_threshold: 50
+    time_window_seconds: 60

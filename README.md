@@ -2,7 +2,7 @@
 
 Mini IDS is a defensive, passive, educational network security monitor written in Python. The project is intended to analyze offline PCAP files, extract packet metadata, detect simple suspicious behavior, and produce structured alerts and reports as it grows.
 
-This repository now has a basic end-to-end offline analysis workflow. Its Typer CLI can read and parse a PCAP, run vertical TCP port-scan and connection-burst rules, render alerts and engine statistics with Rich, and optionally write packet and alert JSONL logs. DNS anomaly detection, configuration loading, aggregate reporting, and live capture have not been implemented yet.
+This repository now has a configurable end-to-end offline analysis workflow. Its Typer CLI can read and parse a PCAP, run vertical TCP port-scan and connection-burst rules, render alerts and engine statistics with Rich, and optionally write packet and alert JSONL logs. YAML configuration can enable, disable, and tune the two implemented rules. DNS anomaly detection, aggregate reporting, and live capture have not been implemented yet.
 
 ## Project Vision
 
@@ -46,7 +46,6 @@ The first functional MVP should include:
 
 The first complete version should add:
 
-- Configurable detection thresholds
 - DNS anomaly detection
 - Traffic summaries
 - JSON analysis reports
@@ -57,7 +56,7 @@ The first complete version should add:
 
 ## Repository Status
 
-Current stage: Issue #21 core test hardening.
+Current stage: Issue #17 YAML configuration support.
 
 Implemented now:
 
@@ -78,7 +77,8 @@ Implemented now:
 - Independent packet and alert JSONL persistence
 - Rich terminal presentation for alerts and engine summaries
 - Basic `analyze --pcap` CLI workflow
-- 200-case test suite with 99% statement coverage
+- Typed YAML configuration for current rule settings
+- 261-case test suite with 99% statement coverage
 - Standard project folders
 - Python `.gitignore`
 - Initial `requirements.txt`
@@ -88,7 +88,6 @@ Implemented now:
 Not implemented yet:
 
 - DNS anomaly detection
-- Configuration loading
 - Traffic summaries and aggregate reports
 - Live capture
 
@@ -152,7 +151,7 @@ Run the suite with statement coverage:
 python -m pytest --cov=mini_ids --cov-report=term-missing
 ```
 
-The current snapshot contains 200 passing test cases with 99% statement coverage. It covers the implemented models, PCAP reader, packet parser, mock packet data, rule interface, detection engine, both detection rules, JSONL persistence, console presentation, CLI workflow, and a public-API pipeline integration test. See [`docs/testing-report.md`](docs/testing-report.md) for module results and testing limitations.
+The current snapshot contains 261 passing test cases with 99% statement coverage. It covers the implemented models, PCAP reader, packet parser, mock packet data, rule interface, detection engine, both detection rules, YAML configuration, JSONL persistence, console presentation, CLI workflow, and a public-API pipeline integration test. See [`docs/testing-report.md`](docs/testing-report.md) for module results and testing limitations.
 
 ## Usage
 
@@ -180,7 +179,32 @@ python3 -m mini_ids.cli analyze \
 
 Log files are created only when their option is supplied. Parent directories are created automatically, and each requested file is overwritten for the new analysis run rather than appended.
 
-The CLI currently uses fixed constructor defaults for both rules. It does not support configuration files, DNS anomaly detection, traffic-summary or final-report generation, or live capture.
+Configuration is optional. Without `--config`, both rules use their existing defaults. To load a YAML file:
+
+```bash
+python3 -m mini_ids.cli analyze \
+  --pcap /path/to/capture.pcap \
+  --config examples/config.example.yaml
+```
+
+Supported schema:
+
+```yaml
+rules:
+  port_scan:
+    enabled: true
+    port_threshold: 10
+    time_window_seconds: 60
+
+  connection_burst:
+    enabled: true
+    connection_threshold: 50
+    time_window_seconds: 60
+```
+
+Sections and fields may be omitted to retain defaults. A rule is disabled with `enabled: false`. Alert conditions are strictly greater than their thresholds: defaults alert on the 11th distinct destination port or the 51st initial connection attempt within 60 seconds. Unknown fields, unknown rules, malformed YAML, and invalid values fail clearly.
+
+Only port-scan and connection-burst rules are configurable. DNS anomaly detection, traffic-summary or final-report generation, and live capture are not implemented.
 
 ## Documentation
 

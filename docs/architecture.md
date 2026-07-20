@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the high-level architecture of the Mini IDS / Network Security Monitor. The project now provides a basic end-to-end offline PCAP analysis command, but it remains an early MVP with two detection rules and no configuration, aggregate reporting, DNS anomaly detection, or live capture.
+This document describes the high-level architecture of the Mini IDS / Network Security Monitor. The project now provides a configurable end-to-end offline PCAP analysis command, but it remains an early MVP with two detection rules and no aggregate reporting, DNS anomaly detection, or live capture.
 
 ## Current Status
 
@@ -22,12 +22,12 @@ Implemented so far:
 - Independent packet and alert JSONL persistence
 - Rich terminal presentation for alerts and engine summaries
 - Basic Typer CLI for end-to-end offline PCAP analysis
+- Typed YAML configuration for current detection rules
 
 Not implemented yet:
 
 - DNS anomaly detection
 - Reporting
-- Configuration loading
 - Live capture
 
 ## Architectural Goals
@@ -56,7 +56,7 @@ MVP components:
 - Console presenter for alerts and engine summaries
 - Basic CLI for `analyze --pcap`
 
-DNS anomaly detection, configuration files, final JSON reports, and live capture are not required for the first MVP.
+DNS anomaly detection, final JSON reports, and live capture are not required for the first MVP. YAML configuration is optional; omitting it preserves the original rule defaults.
 
 ## Implemented MVP Data Flow
 
@@ -130,9 +130,9 @@ Detection rules inspect `PacketInfo` objects and return zero or more `Alert` obj
 
 The implemented `DetectionRule` interface requires stable rule metadata (`rule_id`, `name`, `description`, and `severity`) plus a `process_packet()` method. It does not prescribe how concrete rules store state or implement time windows.
 
-`PortScanRule` is the first concrete rule. It detects one source sending TCP SYN packets without ACK to more than 10 distinct ports on one destination within an inclusive rolling 60-second window. Thresholds are currently constructor arguments because configuration loading has not been implemented.
+`PortScanRule` is the first concrete rule. It detects one source sending TCP SYN packets without ACK to more than 10 distinct ports on one destination within an inclusive rolling 60-second window. The optional YAML configuration can override its constructor threshold and window or disable the rule.
 
-`ConnectionBurstRule` detects one source sending more than 50 TCP SYN packets without ACK within an inclusive rolling 60-second window. It counts repeated attempts separately across all destinations and ports. Its evidence uses bounded destination summaries, and its thresholds are also constructor arguments.
+`ConnectionBurstRule` detects one source sending more than 50 TCP SYN packets without ACK within an inclusive rolling 60-second window. It counts repeated attempts separately across all destinations and ports. Its evidence uses bounded destination summaries, and the optional YAML configuration can override its threshold and window or disable it.
 
 First MVP rules:
 
@@ -187,6 +187,14 @@ The console presenter renders individual alerts, ordered alert collections, and 
 
 Console presentation does not calculate engine statistics, write files, parse CLI arguments, or coordinate packet analysis. JSONL persistence remains in `mini_ids/logger.py`; the CLI decides when to invoke each output layer.
 
+### Configuration
+
+Module: `mini_ids/config.py`
+
+The configuration layer loads optional YAML into frozen `AppConfig`, `PortScanConfig`, and `ConnectionBurstConfig` dataclasses. Missing sections and fields use defaults equivalent to the rule constructors. Explicit validation rejects malformed YAML, unknown sections or fields, incorrect types, non-positive thresholds and windows, and non-finite windows.
+
+`build_rules()` is the single configured rule-construction path. It emits enabled rules in deterministic port-scan then connection-burst order and omits disabled rules. Configuration does not contain placeholders for DNS, reporting, or live capture.
+
 ### Reporter
 
 Planned module: `mini_ids/reporting.py`
@@ -205,9 +213,9 @@ The Typer CLI is the user-facing coordinator. It provides one offline analysis c
 python -m mini_ids.cli analyze --pcap pcaps/sample.pcap
 ```
 
-The command preserves parser and alert order, keeps `OTHER` packets, skips parser results of `None`, and reports statistics only for `PacketInfo` objects passed to the engine. Optional `--packet-log` and `--alert-log` paths write JSONL with explicit overwrite behavior.
+The command preserves parser and alert order, keeps `OTHER` packets, skips parser results of `None`, and reports statistics only for `PacketInfo` objects passed to the engine. Optional `--packet-log` and `--alert-log` paths write JSONL with explicit overwrite behavior. Optional `--config` loads validated YAML before rule construction; omitting it uses both default rules.
 
-Expected capture and output-path errors are presented without tracebacks and return a non-zero exit code. Unexpected processing errors propagate. Configuration support is useful, but it is not part of this basic CLI; a later version can add:
+Expected capture, configuration, and output-path errors are presented without tracebacks and return a non-zero exit code. Unexpected processing errors propagate. A configured run uses the same command with `--config`:
 
 ```bash
 python -m mini_ids.cli analyze --pcap pcaps/sample.pcap --config examples/config.example.yaml
@@ -217,7 +225,6 @@ python -m mini_ids.cli analyze --pcap pcaps/sample.pcap --config examples/config
 
 After the MVP works, v1.0 should add:
 
-- YAML configuration for thresholds and rule enable/disable settings
 - DNS anomaly detection
 - Traffic summaries
 - JSON analysis reports
@@ -264,9 +271,9 @@ flowchart TD
     N[Typer CLI] --> B
     N --> I
     N --> J
+    M[YAML Config] --> N
 
     L[Live Capture - non-MVP] -. later .-> B
-    M[YAML Config - v1.0] -. later .-> F
 ```
 
 ## Design Decisions
@@ -274,7 +281,7 @@ flowchart TD
 - Offline PCAP analysis is the first supported mode because it is safer, easier to test, and easier to demo.
 - Live capture is non-MVP and should be added only after the offline workflow is reliable.
 - DNS anomaly detection belongs to v1.0, not the first MVP.
-- Configuration loading is useful but should not block the first basic CLI.
+- Configuration is optional, strict, and limited to implemented rules.
 - Detection rules should process normalized `PacketInfo` objects, not raw Scapy packets.
 - Alerts should be structured data, not plain strings.
 - The logger and reporter are separate because logs are event-level output while reports are run-level summaries.
