@@ -69,7 +69,7 @@ mini-ids-network-monitor/
 │   ├── reporting.py    # TrafficSummary and AnalysisReport
 │   └── cli.py          # Typer analyze command
 ├── tests/              # Unit and public-pipeline tests
-├── docs/               # Architecture, rules, threat model, testing
+├── docs/               # Technical references and reproducible demo
 ├── examples/           # Example configuration and mock metadata
 ├── pcaps/samples/      # Safe deterministic demonstration captures
 ├── scripts/            # Synthetic PCAP generator
@@ -115,6 +115,10 @@ python3 -m mini_ids.cli analyze \
 ```
 
 The command parses 11 TCP SYN packets, emits one `PORT_SCAN_001` alert at the default boundary, and prints separate detection and traffic summaries. It does not create output files unless an output path is explicitly supplied.
+
+## Reproducible Demo
+
+The [complete demo scenario](docs/demo-scenario.md) walks through all five safe synthetic PCAPs, each detection family, JSONL inspection, the complete JSON report, configuration, overwrite behavior, expected errors, and cleanup. It requires no live traffic, network-interface access, or root privileges.
 
 ## Full Analysis Example
 
@@ -228,6 +232,7 @@ High statement coverage improves regression confidence; it does not prove produc
 
 ## Documentation
 
+- [Reproducible Demo](docs/demo-scenario.md)
 - [Architecture](docs/architecture.md)
 - [Detection Rules](docs/detection-rules.md)
 - [Threat Model](docs/threat-model.md)
@@ -258,8 +263,6 @@ Use Mini IDS only with PCAP files you own or are explicitly authorized to inspec
 
 Near-term work remains clearly separate from implemented functionality:
 
-- Finalize architecture, threat-model, and detection-rule documentation
-- Add a reproducible final demonstration guide
 - Add GitHub Actions CI and a code-quality pass
 - Evaluate optional live capture only after the offline workflow is stable
 - Consider later HTML reporting, IPv6 improvements, and performance benchmarks
