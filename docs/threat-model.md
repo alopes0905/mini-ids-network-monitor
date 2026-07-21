@@ -4,11 +4,11 @@ This document defines the defensive and ethical scope of the Mini IDS / Network 
 
 ## Current Status
 
-Threat model placeholder only. Detection rules and packet analysis behavior have not been implemented yet.
+The project implements offline PCAP analysis with metadata parsing, three heuristic detection-rule families, structured logs, traffic summaries, and JSON reports. Live capture, automated response, and payload-signature detection are not implemented.
 
 ## Purpose
 
-Mini IDS is intended to help analyze authorized network traffic captures for simple suspicious patterns. It is an educational defensive monitoring project, not a production IDS replacement.
+Mini IDS helps analyze authorized network traffic captures for simple suspicious patterns. It is an educational defensive monitoring project, not a production IDS replacement.
 
 ## Authorized Use
 
@@ -34,13 +34,13 @@ This project must not implement:
 - Offensive scanning modules
 - Deep inspection of sensitive payloads
 
-## Planned Detection Scope
+## Detection Scope
 
-The first detection scope is intentionally narrow:
+The implemented detection scope is intentionally narrow:
 
 - Port scan-like behavior
-- Connection bursts
-- DNS anomaly detection later in v1.0
+- TCP connection-attempt bursts
+- DNS query bursts, unique-domain bursts, and long queried domains
 
 ## Limitations
 
