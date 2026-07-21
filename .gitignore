@@ -68,6 +68,18 @@ instance/
 # Scrapy stuff:
 .scrapy
 
+# Network captures: keep private/local captures out of version control.
+*.pcap
+*.pcapng
+!pcaps/samples/
+!pcaps/samples/*.pcap
+
+# Generated analysis output
+logs/*
+!logs/.gitkeep
+reports/*
+!reports/.gitkeep
+
 # Sphinx documentation
 docs/_build/
 

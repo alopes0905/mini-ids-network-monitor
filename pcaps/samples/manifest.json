@@ -1,0 +1,68 @@
+{
+  "samples": [
+    {
+      "description": "Benign TCP, UDP, ICMP, and DNS metadata below all thresholds.",
+      "expected_alert_count": 0,
+      "expected_alerts": [],
+      "filename": "normal-traffic.pcap",
+      "packet_count": 7
+    },
+    {
+      "description": "Eleven distinct TCP SYN destination ports for one endpoint pair.",
+      "expected_alert_count": 1,
+      "expected_alerts": [
+        {
+          "anomaly_type": null,
+          "rule_id": "PORT_SCAN_001"
+        }
+      ],
+      "filename": "port-scan.pcap",
+      "packet_count": 11
+    },
+    {
+      "description": "Fifty-one TCP SYN attempts to one repeated target.",
+      "expected_alert_count": 1,
+      "expected_alerts": [
+        {
+          "anomaly_type": null,
+          "rule_id": "CONNECTION_BURST_001"
+        }
+      ],
+      "filename": "connection-burst.pcap",
+      "packet_count": 51
+    },
+    {
+      "description": "Thirty-one repeated example.org DNS queries from one source.",
+      "expected_alert_count": 1,
+      "expected_alerts": [
+        {
+          "anomaly_type": "query_burst",
+          "rule_id": "DNS_ANOMALY_001"
+        }
+      ],
+      "filename": "dns-anomaly.pcap",
+      "packet_count": 31
+    },
+    {
+      "description": "Independent synthetic sequences for all three rule families.",
+      "expected_alert_count": 3,
+      "expected_alerts": [
+        {
+          "anomaly_type": null,
+          "rule_id": "PORT_SCAN_001"
+        },
+        {
+          "anomaly_type": null,
+          "rule_id": "CONNECTION_BURST_001"
+        },
+        {
+          "anomaly_type": "query_burst",
+          "rule_id": "DNS_ANOMALY_001"
+        }
+      ],
+      "filename": "mixed-alerts.pcap",
+      "packet_count": 93
+    }
+  ],
+  "schema_version": 1
+}

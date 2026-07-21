@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the high-level architecture of the Mini IDS / Network Security Monitor. The project now provides a configurable end-to-end offline PCAP analysis command with three detection rules, in-memory traffic aggregation, and optional complete JSON analysis reports. It does not support live capture or alternate report formats.
+This document describes the high-level architecture of the Mini IDS / Network Security Monitor. The project now provides a configurable end-to-end offline PCAP analysis command with three detection rules, in-memory traffic aggregation, optional complete JSON analysis reports, and deterministic synthetic demonstration captures. It does not support live capture or alternate report formats.
 
 ## Current Status
 
@@ -26,6 +26,7 @@ Implemented so far:
 - DNS query-burst, unique-domain, and long-domain detection
 - Aggregate traffic-summary generation and Rich presentation
 - Complete JSON analysis-report modeling and explicit file writing
+- Deterministic synthetic sample-PCAP generation and manifest validation
 
 Not implemented yet:
 
@@ -44,7 +45,7 @@ Not implemented yet:
 
 ## MVP Architecture
 
-The MVP focuses on offline analysis of PCAP files. Its basic command reads a PCAP, parses packet metadata, runs the two implemented rules, prints alerts and a terminal summary, and optionally writes structured packet and alert logs.
+The MVP focuses on offline analysis of PCAP files. Its basic command reads a PCAP, parses packet metadata, runs the implemented rules, prints alerts and terminal summaries, and optionally writes structured packet and alert logs or a complete JSON report.
 
 MVP components:
 
@@ -58,7 +59,7 @@ MVP components:
 - Console presenter for alerts, detection summaries, and traffic summaries
 - Basic CLI for `analyze --pcap`
 
-DNS anomaly detection was not required for the first MVP and is the first implemented v1.0 rule. Final JSON reports and live capture remain future work. YAML configuration is optional; omitting it preserves the rule defaults.
+DNS anomaly detection was not required for the first MVP and is the first implemented v1.0 rule. Complete JSON reports and safe synthetic sample captures are now implemented; live capture and alternate report formats remain future work. YAML configuration is optional; omitting it preserves the rule defaults.
 
 ## Implemented MVP Data Flow
 
@@ -85,6 +86,8 @@ Module: `mini_ids/capture.py`
 The packet source reads raw packets from offline PCAP files using Scapy. It handles file-level concerns such as missing paths, non-file paths, and invalid or unreadable captures.
 
 The packet source should not parse packet fields into project models and should not run detection logic.
+
+The repository includes five reviewed synthetic inputs under `pcaps/samples/`. `scripts/generate_sample_pcaps.py` constructs fixed Scapy packets in memory and writes them offline. It uses only documentation address ranges and reserved example domains, never sends or captures traffic, and emits a deterministic manifest describing packet and expected-alert counts. This demonstration-data generator remains separate from runtime capture ingestion.
 
 ### Packet Parser
 

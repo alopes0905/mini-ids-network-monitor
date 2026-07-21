@@ -1,6 +1,6 @@
 # Testing Report
 
-This report records the Mini IDS testing state after the Issue #27 JSON analysis-report pass. It is a development snapshot, not a claim of production readiness or complete security validation.
+This report records the Mini IDS testing state after the Issue #22 safe sample-PCAP pass. It is a development snapshot, not a claim of production readiness or complete security validation.
 
 ## Tools and Environment
 
@@ -31,14 +31,14 @@ python3 -m pytest --cov=mini_ids --cov-report=term-missing
 
 ## Current Results
 
-Results measured on 2026-07-20:
+Results measured on 2026-07-21:
 
-- Collected test cases: **434**
-- Passing test cases: **434**
+- Collected test cases: **465**
+- Passing test cases: **465**
 - Overall statement coverage: **99%**
 - Covered statements: **951 of 958**
 
-Issue #16 established a 388-test, 99%-coverage baseline with full traffic-summary coverage. Issue #27 added focused report validation, detachment, UTC normalization, serialization, writing, CLI integration, and public-pipeline coverage.
+Issue #27 established a 434-test, 99%-coverage baseline with complete JSON-report coverage. Issue #22 added 31 focused checks for deterministic generation, committed-file parity, safe addressing and domains, bounded payload-free packets, exact default-rule alerts, manifests, aggregation, report construction, and prohibited network APIs.
 
 ### Module Coverage
 
@@ -77,6 +77,7 @@ The suite currently covers:
 - Rich alert, detection-summary, and bounded traffic-summary output, all severities, optional fields, ordering, empty results, literal text, provided-console behavior, and non-mutation
 - CLI help, single-parse synthetic-PCAP analysis, all three rules, traffic statistics, optional JSONL and complete JSON outputs, overwrite behavior, output errors, and future-feature boundaries
 - A framework-independent integration path from synthetic PCAP ingestion through parsing, all three rules, traffic aggregation, JSONL persistence, `AnalysisReport`, JSON file writing, and console presentation
+- Five committed synthetic PCAP scenarios, including deterministic regeneration, manifest consistency, documentation-only addresses, reserved domains, file-size bounds, no raw payloads, exact alert contracts, and static exclusion of network transmission or capture APIs
 
 ## Intentionally Uncovered
 

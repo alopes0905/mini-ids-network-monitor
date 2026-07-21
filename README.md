@@ -2,7 +2,7 @@
 
 Mini IDS is a defensive, passive, educational network security monitor written in Python. The project is intended to analyze offline PCAP files, extract packet metadata, detect simple suspicious behavior, and produce structured alerts and reports as it grows.
 
-This repository now has a configurable end-to-end offline analysis workflow. Its Typer CLI can read and parse a PCAP, run vertical TCP port-scan, connection-burst, and DNS-anomaly rules, render detection and aggregate traffic statistics with Rich, and optionally write packet and alert JSONL logs or one complete JSON analysis report. YAML configuration can enable, disable, and tune all three implemented rules. Live capture and HTML, Markdown, or CSV reports have not been implemented.
+This repository now has a configurable end-to-end offline analysis workflow and safe synthetic PCAP samples. Its Typer CLI can read and parse a PCAP, run vertical TCP port-scan, connection-burst, and DNS-anomaly rules, render detection and aggregate traffic statistics with Rich, and optionally write packet and alert JSONL logs or one complete JSON analysis report. YAML configuration can enable, disable, and tune all three implemented rules. Live capture and HTML, Markdown, or CSV reports have not been implemented.
 
 ## Project Vision
 
@@ -56,7 +56,7 @@ The first complete version should add:
 
 ## Repository Status
 
-Current stage: Issue #27 JSON analysis reports.
+Current stage: Issue #22 safe synthetic sample PCAPs.
 
 Implemented now:
 
@@ -77,11 +77,12 @@ Implemented now:
 - DNS query-burst, unique-domain, and long-domain detection
 - Aggregate packet, endpoint, port, protocol, and DNS-query statistics
 - Complete JSON analysis reports with UTC metadata, statistics, and alerts
+- Five deterministic synthetic PCAP samples with a machine-readable manifest
 - Independent packet and alert JSONL persistence
 - Rich terminal presentation for alerts, detection summaries, and traffic summaries
 - Basic `analyze --pcap` CLI workflow
 - Typed YAML configuration for current rule settings
-- 434-case test suite with 99% statement coverage
+- 465-case test suite with 99% statement coverage
 - Standard project folders
 - Python `.gitignore`
 - Initial `requirements.txt`
@@ -105,7 +106,8 @@ mini-ids-network-monitor/
 ├── docs/
 ├── tests/
 ├── examples/
-├── pcaps/
+├── pcaps/samples/
+├── scripts/
 ├── logs/
 └── reports/
 ```
@@ -153,7 +155,7 @@ Run the suite with statement coverage:
 python -m pytest --cov=mini_ids --cov-report=term-missing
 ```
 
-The current test count and statement coverage are recorded in [`docs/testing-report.md`](docs/testing-report.md). The suite covers the implemented models, PCAP reader, packet parser, mock packet data, rule interface, detection engine, all three detection rules, YAML configuration, traffic aggregation, JSONL persistence, console presentation, CLI workflow, and a public-API pipeline integration test.
+The current test count and statement coverage are recorded in [`docs/testing-report.md`](docs/testing-report.md). The suite covers the implemented models, PCAP reader, packet parser, mock packet data, rule interface, detection engine, all three detection rules, YAML configuration, traffic aggregation, JSONL persistence, console presentation, CLI workflow, synthetic sample-PCAP contracts, and public-API pipeline integration.
 
 ## Usage
 
@@ -169,6 +171,25 @@ Analyze an offline PCAP with all three default rules:
 ```bash
 python3 -m mini_ids.cli analyze --pcap /path/to/capture.pcap
 ```
+
+Generate the repository's safe synthetic examples, then analyze one:
+
+```bash
+python3 scripts/generate_sample_pcaps.py
+python3 -m mini_ids.cli analyze --pcap pcaps/samples/port-scan.pcap
+```
+
+The generator only constructs fixed Scapy packets in memory and writes them to PCAP files. It never transmits or captures traffic. All sample addresses are from documentation-only ranges, DNS names use reserved example domains, and repeated generation overwrites the five known files deterministically.
+
+| Sample | Contents | Expected alerts with defaults |
+| --- | --- | --- |
+| `normal-traffic.pcap` | 7 benign TCP, UDP, ICMP, and DNS packets | None |
+| `port-scan.pcap` | 11 distinct TCP SYN destination ports | `PORT_SCAN_001` |
+| `connection-burst.pcap` | 51 repeated-target TCP SYN attempts | `CONNECTION_BURST_001` |
+| `dns-anomaly.pcap` | 31 repeated `example.org` queries | `DNS_ANOMALY_001` query burst |
+| `mixed-alerts.pcap` | 93 packets combining the focused scenarios | All three alerts |
+
+Detailed safety notes and the exact manifest contract are in [`pcaps/README.md`](pcaps/README.md). Arbitrary local PCAPs, generated logs, and generated reports remain ignored by Git.
 
 Optionally write parsed packets and generated alerts as separate JSONL files:
 
@@ -265,6 +286,7 @@ DNS names are lowercased and one trailing dot is removed before DNS thresholds a
 - `docs/detection-rules.md` documents implemented detection semantics and limitations.
 - `docs/testing-report.md` records current coverage and testing limitations.
 - `docs/threat-model.md` defines the defensive and ethical scope.
+- `pcaps/README.md` documents the synthetic sample set and private-capture policy.
 
 ## Responsible Use
 
