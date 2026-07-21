@@ -46,7 +46,7 @@ Issue #27 established a 434-test, 99%-coverage baseline with complete JSON-repor
 | --- | ---: |
 | `mini_ids/__init__.py` | 100% |
 | `mini_ids/capture.py` | 100% |
-| `mini_ids/cli.py` | 96% |
+| `mini_ids/cli.py` | 97% |
 | `mini_ids/config.py` | 100% |
 | `mini_ids/console.py` | 100% |
 | `mini_ids/engine.py` | 100% |
