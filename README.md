@@ -2,7 +2,7 @@
 
 Mini IDS is a defensive, passive, educational network security monitor written in Python. The project is intended to analyze offline PCAP files, extract packet metadata, detect simple suspicious behavior, and produce structured alerts and reports as it grows.
 
-This repository now has a configurable end-to-end offline analysis workflow. Its Typer CLI can read and parse a PCAP, run vertical TCP port-scan, connection-burst, and DNS-anomaly rules, render detection and aggregate traffic statistics with Rich, and optionally write packet and alert JSONL logs. YAML configuration can enable, disable, and tune all three implemented rules. Final report-file generation and live capture have not been implemented yet.
+This repository now has a configurable end-to-end offline analysis workflow. Its Typer CLI can read and parse a PCAP, run vertical TCP port-scan, connection-burst, and DNS-anomaly rules, render detection and aggregate traffic statistics with Rich, and optionally write packet and alert JSONL logs or one complete JSON analysis report. YAML configuration can enable, disable, and tune all three implemented rules. Live capture and HTML, Markdown, or CSV reports have not been implemented.
 
 ## Project Vision
 
@@ -48,7 +48,7 @@ The first complete version should add:
 
 - DNS anomaly detection (implemented)
 - Traffic summaries (implemented)
-- JSON analysis reports
+- JSON analysis reports (implemented)
 - Optional live capture mode
 - Professional documentation
 - Demo scenario
@@ -56,7 +56,7 @@ The first complete version should add:
 
 ## Repository Status
 
-Current stage: Issue #16 traffic-summary aggregation.
+Current stage: Issue #27 JSON analysis reports.
 
 Implemented now:
 
@@ -76,11 +76,12 @@ Implemented now:
 - TCP connection-burst detection by source IP
 - DNS query-burst, unique-domain, and long-domain detection
 - Aggregate packet, endpoint, port, protocol, and DNS-query statistics
+- Complete JSON analysis reports with UTC metadata, statistics, and alerts
 - Independent packet and alert JSONL persistence
 - Rich terminal presentation for alerts, detection summaries, and traffic summaries
 - Basic `analyze --pcap` CLI workflow
 - Typed YAML configuration for current rule settings
-- 388-case test suite with 99% statement coverage
+- 434-case test suite with 99% statement coverage
 - Standard project folders
 - Python `.gitignore`
 - Initial `requirements.txt`
@@ -89,7 +90,7 @@ Implemented now:
 
 Not implemented yet:
 
-- Final JSON analysis reports
+- HTML, Markdown, and CSV reports
 - Live capture
 
 ## Project Structure
@@ -180,7 +181,49 @@ python3 -m mini_ids.cli analyze \
 
 Log files are created only when their option is supplied. Parent directories are created automatically, and each requested file is overwritten for the new analysis run rather than appended.
 
-Every successful analysis also prints a separate traffic summary containing the total parsed packet count, protocol distribution, DNS query count, and deterministic top-five source IPs, destination IPs, and destination ports. Rankings use descending packet count with lexical IP or numeric port tie-breaking. This in-memory summary is not written to a report file; packet and alert JSONL files remain individual event records.
+Write one complete JSON analysis report to an explicit path:
+
+```bash
+python3 -m mini_ids.cli analyze \
+  --pcap /path/to/capture.pcap \
+  --report reports/analysis.json
+```
+
+No report is written unless `--report` is supplied. Parent directories are created and an existing requested file is overwritten. The report uses validated UTC ISO 8601 timestamps and this high-level schema:
+
+```json
+{
+  "pcap_file": "capture.pcap",
+  "analysis_started": "2026-07-21T20:15:30Z",
+  "analysis_finished": "2026-07-21T20:15:31Z",
+  "detection_summary": {
+    "packets_processed": 0,
+    "alerts_generated": 0,
+    "severity_counts": {
+      "LOW": 0,
+      "MEDIUM": 0,
+      "HIGH": 0,
+      "CRITICAL": 0
+    }
+  },
+  "traffic_summary": {
+    "packets_processed": 0,
+    "source_packet_counts": {},
+    "destination_packet_counts": {},
+    "destination_port_counts": {},
+    "protocol_counts": {},
+    "dns_query_count": 0,
+    "top_sources": [],
+    "top_destinations": [],
+    "top_destination_ports": []
+  },
+  "alerts": []
+}
+```
+
+The report is one JSON document for the completed analysis. Packet and alert JSONL logs remain separate event streams with one model record per line.
+
+Every successful analysis also prints a separate traffic summary containing the total parsed packet count, protocol distribution, DNS query count, and deterministic top-five source IPs, destination IPs, and destination ports. Rankings use descending packet count with lexical IP or numeric port tie-breaking. Traffic statistics are included in an explicitly requested complete report but are not written as a standalone summary file.
 
 Configuration is optional. Without `--config`, all three rules use their existing defaults. To load a YAML file:
 
@@ -214,7 +257,7 @@ rules:
 
 Sections and fields may be omitted to retain defaults. A rule is disabled with `enabled: false`. Alert conditions are strictly greater than their thresholds: defaults alert on the 11th distinct destination port, the 51st initial connection attempt, the 31st DNS query, the 21st unique DNS domain, or a normalized domain length of 71. Unknown fields, unknown rules, malformed YAML, and invalid values fail clearly.
 
-DNS names are lowercased and one trailing dot is removed before DNS thresholds are evaluated. DNS detection is heuristic and does not prove command-and-control, tunneling, or other malicious activity. Final-report generation and live capture are not implemented.
+DNS names are lowercased and one trailing dot is removed before DNS thresholds are evaluated. DNS detection is heuristic and does not prove command-and-control, tunneling, or other malicious activity. HTML, Markdown, CSV, automatic report filenames, and live capture are not implemented.
 
 ## Documentation
 

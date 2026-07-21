@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -15,11 +16,15 @@ from mini_ids.engine import DetectionEngine
 from mini_ids.logger import write_alerts_jsonl, write_packets_jsonl
 from mini_ids.models import PacketInfo
 from mini_ids.parser import parse_packet
-from mini_ids.reporting import build_traffic_summary
+from mini_ids.reporting import (
+    build_analysis_report,
+    build_traffic_summary,
+    write_analysis_report,
+)
 
 
 class OutputWriteError(Exception):
-    """Raised when a requested analysis log cannot be written."""
+    """Raised when a requested analysis output cannot be written."""
 
 
 app = typer.Typer(
@@ -41,10 +46,12 @@ def analyze_pcap(
     config: AppConfig | None = None,
     packet_log: Path | None = None,
     alert_log: Path | None = None,
+    report_path: Path | None = None,
     console: Console | None = None,
 ) -> dict[str, object]:
     """Analyze one PCAP using configured rules and return its engine summary."""
 
+    analysis_started = datetime.now(UTC)
     parsed_packets: list[PacketInfo] = []
     for raw_packet in read_pcap(pcap_path):
         packet = parse_packet(raw_packet)
@@ -56,6 +63,7 @@ def analyze_pcap(
     alerts = engine.process_packets(parsed_packets)
     summary = engine.get_summary()
     traffic_summary = build_traffic_summary(parsed_packets)
+    analysis_finished = datetime.now(UTC)
 
     if packet_log is not None:
         try:
@@ -71,10 +79,29 @@ def analyze_pcap(
             raise OutputWriteError(
                 f"Unable to write alert log: {alert_log}: {exc}"
             ) from exc
+    written_report: Path | None = None
+    if report_path is not None:
+        report = build_analysis_report(
+            pcap_file=pcap_path,
+            analysis_started=analysis_started,
+            analysis_finished=analysis_finished,
+            detection_summary=summary,
+            traffic_summary=traffic_summary,
+            alerts=alerts,
+        )
+        try:
+            written_report = write_analysis_report(report, report_path)
+        except OSError as exc:
+            raise OutputWriteError(
+                f"Unable to write analysis report: {report_path}: {exc}"
+            ) from exc
 
-    print_alerts(alerts, console)
-    print_summary(summary, console)
-    print_traffic_summary(traffic_summary, console)
+    output = console if console is not None else Console()
+    print_alerts(alerts, output)
+    print_summary(summary, output)
+    print_traffic_summary(traffic_summary, output)
+    if written_report is not None:
+        output.print(f"Analysis report written to {written_report}")
     return summary
 
 
@@ -108,6 +135,13 @@ def analyze(
             help="Optional YAML configuration for detection rules.",
         ),
     ] = None,
+    report: Annotated[
+        Path | None,
+        typer.Option(
+            "--report",
+            help="Optional path for the complete JSON analysis report.",
+        ),
+    ] = None,
 ) -> None:
     """Analyze an offline PCAP with the configured Mini IDS rules."""
 
@@ -118,6 +152,7 @@ def analyze(
             config=active_config,
             packet_log=packet_log,
             alert_log=alert_log,
+            report_path=report,
         )
     except (
         ConfigError,

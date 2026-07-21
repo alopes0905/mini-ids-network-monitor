@@ -1,6 +1,6 @@
 # Testing Report
 
-This report records the Mini IDS testing state after the Issue #16 traffic-summary pass. It is a development snapshot, not a claim of production readiness or complete security validation.
+This report records the Mini IDS testing state after the Issue #27 JSON analysis-report pass. It is a development snapshot, not a claim of production readiness or complete security validation.
 
 ## Tools and Environment
 
@@ -33,12 +33,12 @@ python3 -m pytest --cov=mini_ids --cov-report=term-missing
 
 Results measured on 2026-07-20:
 
-- Collected test cases: **388**
-- Passing test cases: **388**
+- Collected test cases: **434**
+- Passing test cases: **434**
 - Overall statement coverage: **99%**
-- Covered statements: **846 of 853**
+- Covered statements: **951 of 958**
 
-Issue #15 established a 354-test, 99%-coverage baseline with full DNS-rule coverage. Issue #16 added focused aggregation, ranking, serialization, Rich presentation, single-parse CLI, and public-pipeline coverage.
+Issue #16 established a 388-test, 99%-coverage baseline with full traffic-summary coverage. Issue #27 added focused report validation, detachment, UTC normalization, serialization, writing, CLI integration, and public-pipeline coverage.
 
 ### Module Coverage
 
@@ -72,10 +72,11 @@ The suite currently covers:
 - DNS query-burst, unique-domain, and long-domain boundaries; normalization; per-source state; inclusive expiry; subtype suppression and re-arming; bounded evidence; MITRE context; and three-rule coexistence
 - YAML defaults and partial overrides for all three rules, strict schema and value validation, immutable typed configuration, deterministic rule construction, rule enable/disable behavior, and clean CLI configuration errors
 - Empty, list, and one-pass generator traffic aggregation; endpoint, port, protocol, `OTHER`, unexpected-protocol, and DNS counts; deterministic top-N ranking; limit validation; detached JSON-compatible serialization; and non-mutation
+- Complete analysis reports with UTC timestamp validation, detached engine/traffic/alert data, strict count and severity validation, alert-order preservation, fixed top-five values, deterministic JSON, explicit-path overwrite behavior, and filesystem failures
 - Packet and alert JSONL append/overwrite behavior, generators, empty outputs, newline escaping, directory creation, and filesystem failures
 - Rich alert, detection-summary, and bounded traffic-summary output, all severities, optional fields, ordering, empty results, literal text, provided-console behavior, and non-mutation
-- CLI help, single-parse synthetic-PCAP analysis, all three rules, traffic statistics, `OTHER` packets, optional logs, overwrite behavior, output errors, and future-feature boundaries
-- A framework-independent integration path from synthetic PCAP ingestion through parsing, all three rules, traffic aggregation, JSONL persistence, and console presentation
+- CLI help, single-parse synthetic-PCAP analysis, all three rules, traffic statistics, optional JSONL and complete JSON outputs, overwrite behavior, output errors, and future-feature boundaries
+- A framework-independent integration path from synthetic PCAP ingestion through parsing, all three rules, traffic aggregation, JSONL persistence, `AnalysisReport`, JSON file writing, and console presentation
 
 ## Intentionally Uncovered
 
@@ -83,7 +84,7 @@ The coverage pass does not force tests for branches that Scapy normalizes away i
 
 The coverage command imports `mini_ids.cli` through `CliRunner`, so it does not execute the two module-dispatch statements under `if __name__ == "__main__"`. CLI commands and help behavior are covered through Typer without asserting terminal layout byte for byte.
 
-Features that do not exist yet are not tested: final JSON reports, live capture, packaging entry points, and CI workflows.
+Features that do not exist yet are not tested: HTML/Markdown/CSV reports, live capture, packaging entry points, and CI workflows.
 
 ## Limitations
 
@@ -98,7 +99,7 @@ Features that do not exist yet are not tested: final JSON reports, live capture,
 
 Future v1.0 work should add focused tests alongside each new feature:
 
-- Final-report consistency with separate engine and traffic summaries
+- Alternate report-format consistency if HTML, Markdown, or CSV is added later
 - Larger authorized DNS datasets for threshold tuning and false-positive evaluation
 - Optional live-capture permission and platform boundaries without relying on public traffic
 - CI across supported Python versions

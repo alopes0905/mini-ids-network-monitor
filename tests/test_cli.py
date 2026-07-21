@@ -120,6 +120,10 @@ def read_jsonl(path: Path) -> list[dict[str, object]]:
     ]
 
 
+def read_report(path: Path) -> dict[str, object]:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def test_application_help_succeeds() -> None:
     result = runner.invoke(app, ["--help"])
 
@@ -137,6 +141,7 @@ def test_analyze_help_documents_required_and_optional_paths() -> None:
     assert "--packet-log" in result.output
     assert "--alert-log" in result.output
     assert "--config" in result.output
+    assert "--report" in result.output
 
 
 def test_valid_synthetic_pcap_is_parsed_and_processed(tmp_path: Path) -> None:
@@ -165,6 +170,66 @@ def test_valid_synthetic_pcap_is_parsed_and_processed(tmp_path: Path) -> None:
     assert "DNS queries" in result.output
 
 
+def test_analysis_without_report_option_creates_no_report(tmp_path: Path) -> None:
+    pcap_path = tmp_path / "normal.pcap"
+    write_pcap(pcap_path, [make_tcp_packet(flags="PA")])
+
+    result = runner.invoke(app, ["analyze", "--pcap", str(pcap_path)])
+
+    assert result.exit_code == 0
+    assert list(tmp_path.glob("*.json")) == []
+    assert "Analysis report written" not in result.output
+
+
+def test_valid_analysis_writes_complete_report_to_requested_path(
+    tmp_path: Path,
+) -> None:
+    pcap_path = tmp_path / "normal.pcap"
+    report_path = tmp_path / "nested" / "reports" / "analysis.json"
+    write_pcap(
+        pcap_path,
+        [
+            make_tcp_packet(flags="PA"),
+            make_tcp_packet(timestamp=BASE_TIMESTAMP + 1, flags="A"),
+        ],
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "analyze",
+            "--pcap",
+            str(pcap_path),
+            "--report",
+            str(report_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Analysis report written to" in result.output
+    assert "analysis.json" in result.output
+    report = read_report(report_path)
+    assert report["pcap_file"] == str(pcap_path)
+    assert str(report["analysis_started"]).endswith("Z")
+    assert str(report["analysis_finished"]).endswith("Z")
+    assert report["detection_summary"] == {
+        "packets_processed": 2,
+        "alerts_generated": 0,
+        "severity_counts": {
+            "LOW": 0,
+            "MEDIUM": 0,
+            "HIGH": 0,
+            "CRITICAL": 0,
+        },
+    }
+    traffic = report["traffic_summary"]
+    assert isinstance(traffic, dict)
+    assert traffic["packets_processed"] == 2
+    assert traffic["protocol_counts"] == {"TCP": 2}
+    assert traffic["destination_port_counts"] == {"443": 2}
+    assert report["alerts"] == []
+
+
 def test_empty_valid_pcap_is_handled(tmp_path: Path) -> None:
     pcap_path = tmp_path / "empty.pcap"
     write_empty_pcap(pcap_path)
@@ -179,6 +244,29 @@ def test_empty_valid_pcap_is_handled(tmp_path: Path) -> None:
     assert "Total parsed packets" in result.output
     assert "Protocols" in result.output
     assert "None observed" in result.output
+
+
+def test_empty_pcap_produces_valid_empty_report(tmp_path: Path) -> None:
+    pcap_path = tmp_path / "empty.pcap"
+    report_path = tmp_path / "empty-report.json"
+    write_empty_pcap(pcap_path)
+
+    result = runner.invoke(
+        app,
+        [
+            "analyze",
+            "--pcap",
+            str(pcap_path),
+            "--report",
+            str(report_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    report = read_report(report_path)
+    assert report["detection_summary"]["packets_processed"] == 0
+    assert report["traffic_summary"]["packets_processed"] == 0
+    assert report["alerts"] == []
 
 
 def test_port_scan_pcap_generates_alert(tmp_path: Path) -> None:
@@ -592,6 +680,46 @@ def test_dns_alert_is_written_to_alert_jsonl(tmp_path: Path) -> None:
     assert evidence["anomaly_type"] == "query_burst"
 
 
+def test_report_alerts_match_alert_jsonl_and_preserve_order(
+    tmp_path: Path,
+) -> None:
+    pcap_path = tmp_path / "all-rules.pcap"
+    alert_log = tmp_path / "alerts.jsonl"
+    report_path = tmp_path / "analysis.json"
+    write_pcap(
+        pcap_path,
+        [
+            *make_port_scan_packets(),
+            *make_connection_burst_packets(),
+            *make_dns_query_packets(31),
+        ],
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "analyze",
+            "--pcap",
+            str(pcap_path),
+            "--alert-log",
+            str(alert_log),
+            "--report",
+            str(report_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    report = read_report(report_path)
+    alert_records = read_jsonl(alert_log)
+    assert report["alerts"] == alert_records
+    assert [alert["rule_id"] for alert in report["alerts"]] == [
+        "PORT_SCAN_001",
+        "CONNECTION_BURST_001",
+        "DNS_ANOMALY_001",
+    ]
+    assert report["detection_summary"]["alerts_generated"] == 3
+
+
 def test_log_paths_are_overwritten_and_parent_directories_are_created(
     tmp_path: Path,
 ) -> None:
@@ -631,6 +759,42 @@ def test_log_paths_are_overwritten_and_parent_directories_are_created(
     assert second_result.exit_code == 0
     assert len(read_jsonl(packet_log)) == 1
     assert alert_log.read_text(encoding="utf-8") == ""
+
+
+def test_report_path_is_overwritten_on_repeated_analysis(tmp_path: Path) -> None:
+    first_pcap = tmp_path / "first.pcap"
+    second_pcap = tmp_path / "second.pcap"
+    report_path = tmp_path / "analysis.json"
+    write_pcap(first_pcap, make_port_scan_packets())
+    write_pcap(second_pcap, [make_tcp_packet(flags="PA")])
+
+    first_result = runner.invoke(
+        app,
+        [
+            "analyze",
+            "--pcap",
+            str(first_pcap),
+            "--report",
+            str(report_path),
+        ],
+    )
+    second_result = runner.invoke(
+        app,
+        [
+            "analyze",
+            "--pcap",
+            str(second_pcap),
+            "--report",
+            str(report_path),
+        ],
+    )
+
+    assert first_result.exit_code == 0
+    assert second_result.exit_code == 0
+    report = read_report(report_path)
+    assert report["pcap_file"] == str(second_pcap)
+    assert report["detection_summary"]["packets_processed"] == 1
+    assert report["alerts"] == []
 
 
 def test_other_packets_are_counted_as_parsed_packets(tmp_path: Path) -> None:
@@ -692,6 +856,7 @@ def test_cli_parses_each_raw_packet_once(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     pcap_path = tmp_path / "single-parse.pcap"
+    report_path = tmp_path / "single-parse-report.json"
     write_pcap(
         pcap_path,
         [
@@ -710,10 +875,20 @@ def test_cli_parses_each_raw_packet_once(
 
     monkeypatch.setattr("mini_ids.cli.parse_packet", counting_parser)
 
-    result = runner.invoke(app, ["analyze", "--pcap", str(pcap_path)])
+    result = runner.invoke(
+        app,
+        [
+            "analyze",
+            "--pcap",
+            str(pcap_path),
+            "--report",
+            str(report_path),
+        ],
+    )
 
     assert result.exit_code == 0
     assert parse_calls == 2
+    assert read_report(report_path)["traffic_summary"]["packets_processed"] == 2
 
 
 @pytest.mark.parametrize(
@@ -776,6 +951,36 @@ def test_unwritable_output_path_exits_cleanly(
     assert "Traceback" not in result.output
 
 
+def test_unwritable_report_path_exits_cleanly(tmp_path: Path) -> None:
+    pcap_path = tmp_path / "normal.pcap"
+    packet_log = tmp_path / "packets.jsonl"
+    alert_log = tmp_path / "alerts.jsonl"
+    blocking_file = tmp_path / "not-a-directory"
+    blocking_file.write_text("blocking file", encoding="utf-8")
+    write_pcap(pcap_path, [make_tcp_packet(flags="PA")])
+
+    result = runner.invoke(
+        app,
+        [
+            "analyze",
+            "--pcap",
+            str(pcap_path),
+            "--report",
+            str(blocking_file / "analysis.json"),
+            "--packet-log",
+            str(packet_log),
+            "--alert-log",
+            str(alert_log),
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Unable to write analysis report" in result.output
+    assert "Traceback" not in result.output
+    assert len(read_jsonl(packet_log)) == 1
+    assert alert_log.read_text(encoding="utf-8") == ""
+
+
 def test_unexpected_processing_errors_are_not_swallowed(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -814,3 +1019,6 @@ def test_cli_does_not_add_standalone_dns_or_live_features() -> None:
     assert "live" not in app_help.output.lower()
     assert "dns" not in analyze_help.output.lower()
     assert "traffic-summary" not in analyze_help.output.lower()
+    assert "--html" not in analyze_help.output.lower()
+    assert "--markdown" not in analyze_help.output.lower()
+    assert "--csv" not in analyze_help.output.lower()

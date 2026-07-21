@@ -1,4 +1,5 @@
 import json
+from datetime import UTC, datetime
 from io import StringIO
 from pathlib import Path
 
@@ -13,7 +14,11 @@ from mini_ids.engine import DetectionEngine
 from mini_ids.logger import write_alerts_jsonl, write_packets_jsonl
 from mini_ids.models import PacketInfo
 from mini_ids.parser import parse_packet
-from mini_ids.reporting import build_traffic_summary
+from mini_ids.reporting import (
+    build_analysis_report,
+    build_traffic_summary,
+    write_analysis_report,
+)
 
 
 BASE_TIMESTAMP = 1_720_000_000.0
@@ -58,6 +63,7 @@ def test_public_offline_pipeline_detects_logs_and_displays_results(
     pcap_path = tmp_path / "combined-detection.pcap"
     packet_log = tmp_path / "logs" / "packets.jsonl"
     alert_log = tmp_path / "logs" / "alerts.jsonl"
+    report_path = tmp_path / "reports" / "analysis.json"
     wrpcap(str(pcap_path), make_combined_detection_packets())
 
     parsed_packets = [
@@ -69,8 +75,17 @@ def test_public_offline_pipeline_detects_logs_and_displays_results(
     alerts = engine.process_packets(parsed_packets)
     summary = engine.get_summary()
     traffic_summary = build_traffic_summary(parsed_packets)
+    report = build_analysis_report(
+        pcap_file=pcap_path,
+        analysis_started=datetime(2026, 7, 21, 20, 15, 30, tzinfo=UTC),
+        analysis_finished=datetime(2026, 7, 21, 20, 15, 31, tzinfo=UTC),
+        detection_summary=summary,
+        traffic_summary=traffic_summary,
+        alerts=alerts,
+    )
     write_packets_jsonl(parsed_packets, packet_log, append=False)
     write_alerts_jsonl(alerts, alert_log, append=False)
+    write_analysis_report(report, report_path)
     stream = StringIO()
     console = Console(file=stream, color_system=None, width=120)
     print_alerts(alerts, console)
@@ -79,6 +94,7 @@ def test_public_offline_pipeline_detects_logs_and_displays_results(
 
     packet_records = read_jsonl(packet_log)
     alert_records = read_jsonl(alert_log)
+    report_record = json.loads(report_path.read_text(encoding="utf-8"))
     assert all(isinstance(packet, PacketInfo) for packet in parsed_packets)
     assert len(packet_records) == len(parsed_packets) == 82
     assert [record["rule_id"] for record in alert_records] == [
@@ -113,6 +129,10 @@ def test_public_offline_pipeline_detects_logs_and_displays_results(
         "protocol_counts": {"TCP": 51, "DNS": 31},
         "dns_query_count": 31,
     }
+    assert report_record["detection_summary"] == summary
+    assert report_record["traffic_summary"]["packets_processed"] == 82
+    assert report_record["traffic_summary"]["dns_query_count"] == 31
+    assert report_record["alerts"] == alert_records
     output = stream.getvalue()
     assert output.index("PORT_SCAN_001") < output.index("CONNECTION_BURST_001")
     assert output.index("CONNECTION_BURST_001") < output.index("DNS_ANOMALY_001")

@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the high-level architecture of the Mini IDS / Network Security Monitor. The project now provides a configurable end-to-end offline PCAP analysis command with three detection rules and in-memory traffic aggregation, but it does not yet write final analysis reports or support live capture.
+This document describes the high-level architecture of the Mini IDS / Network Security Monitor. The project now provides a configurable end-to-end offline PCAP analysis command with three detection rules, in-memory traffic aggregation, and optional complete JSON analysis reports. It does not support live capture or alternate report formats.
 
 ## Current Status
 
@@ -25,10 +25,11 @@ Implemented so far:
 - Typed YAML configuration for current detection rules
 - DNS query-burst, unique-domain, and long-domain detection
 - Aggregate traffic-summary generation and Rich presentation
+- Complete JSON analysis-report modeling and explicit file writing
 
 Not implemented yet:
 
-- Final analysis report files
+- HTML, Markdown, and CSV reports
 - Live capture
 
 ## Architectural Goals
@@ -71,6 +72,7 @@ PCAP file input
     -> Alert objects
     -> TrafficSummary from the parsed PacketInfo collection
     -> optional packet and alert JSONL logs
+    -> optional complete JSON AnalysisReport
     -> Rich alerts, detection summary, and traffic summary
 ```
 
@@ -205,7 +207,15 @@ Module: `mini_ids/reporting.py`
 
 `build_traffic_summary()` consumes normalized `PacketInfo` objects and returns a frozen `TrafficSummary`. It counts total packets, source and destination IPs, destination ports, protocols, and DNS queries independently from `DetectionEngine` statistics. Missing endpoint metadata still contributes to the total without creating placeholder keys.
 
-Top-source, top-destination, and top-port methods rank by descending count with deterministic lexical or numeric tie-breaking. `to_dict()` returns detached JSON-compatible data and stringifies destination-port keys only in the serialized representation. The module does not write files or combine traffic data with alerts into a final report; that remains Issue #27.
+Top-source, top-destination, and top-port methods rank by descending count with deterministic lexical or numeric tie-breaking. `to_dict()` returns detached JSON-compatible data and stringifies destination-port keys only in the serialized representation. Traffic aggregation remains independent from detection statistics and report construction.
+
+### Analysis Report
+
+Module: `mini_ids/reporting.py`
+
+`AnalysisReport` combines an explicit PCAP path, validated UTC start and finish timestamps, a normalized copy of detection-engine statistics, a detached `TrafficSummary`, and ordered detached alerts. Its nested JSON schema keeps `detection_summary`, `traffic_summary`, and `alerts` separate. Traffic serialization reuses `TrafficSummary.to_dict()` and includes fixed top-five lists; alert serialization reuses `Alert.to_dict()`.
+
+`write_analysis_report()` writes one UTF-8 JSON document with a final newline to an explicit caller-supplied path. It creates parent directories and overwrites by default. It does not generate paths, append documents, include packet records, or produce HTML, Markdown, or CSV.
 
 ### CLI
 
@@ -217,7 +227,7 @@ The Typer CLI is the user-facing coordinator. It provides one offline analysis c
 python -m mini_ids.cli analyze --pcap pcaps/sample.pcap
 ```
 
-The command preserves parser and alert order, keeps `OTHER` packets, skips parser results of `None`, and reports statistics only for parsed `PacketInfo` objects. The same parsed packet collection is passed to the engine and traffic aggregator without parsing raw packets again. Rich output shows alerts, the separate detection summary, and the traffic summary. Optional `--packet-log` and `--alert-log` paths write JSONL with explicit overwrite behavior. Optional `--config` loads validated YAML before rule construction; omitting it uses all three default rules.
+The command preserves parser and alert order, keeps `OTHER` packets, skips parser results of `None`, and reports statistics only for parsed `PacketInfo` objects. The same parsed packet collection is passed to the engine and traffic aggregator without parsing raw packets again. Rich output shows alerts, the separate detection summary, and the traffic summary. Optional `--packet-log` and `--alert-log` paths write JSONL with explicit overwrite behavior. Optional `--report` captures UTC analysis times, builds one `AnalysisReport`, writes it to the requested path, and prints that location. Optional `--config` loads validated YAML before rule construction; omitting it uses all three default rules.
 
 Expected capture, configuration, and output-path errors are presented without tracebacks and return a non-zero exit code. Unexpected processing errors propagate. A configured run uses the same command with `--config`:
 
@@ -229,7 +239,6 @@ python -m mini_ids.cli analyze --pcap pcaps/sample.pcap --config examples/config
 
 After the MVP works, v1.0 should add:
 
-- JSON analysis reports
 - Optional live capture mode
 - More complete documentation and demo material
 - CI for automated test execution
@@ -271,8 +280,9 @@ flowchart TD
     F --> J
     E --> K[Traffic Summary Aggregator]
     K --> J
-    H --> O[Final Report - future]
+    H --> O[Analysis Report Builder]
     K --> O
+    O --> P[JSON Report File]
     N[Typer CLI] --> B
     N --> I
     N --> J
@@ -289,7 +299,7 @@ flowchart TD
 - Configuration is optional, strict, and limited to implemented rules.
 - Detection rules should process normalized `PacketInfo` objects, not raw Scapy packets.
 - Alerts should be structured data, not plain strings.
-- The logger, traffic aggregator, and future report writer are separate because event persistence, in-memory statistics, and complete report files have different responsibilities.
+- The logger, traffic aggregator, and report builder are separate because event persistence, in-memory statistics, and complete report documents have different responsibilities.
 - The CLI should coordinate existing components rather than contain parsing, detection, or logging logic.
 
 ## Development Setup
