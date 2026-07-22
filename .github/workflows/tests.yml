@@ -1,0 +1,60 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Run tests with coverage
+        run: >-
+          python -m pytest
+          --cov=mini_ids
+          --cov-report=term-missing
+          --cov-fail-under=95
+
+      - name: Compile Python files
+        run: python -m compileall -q mini_ids tests scripts
+
+      - name: Check CLI
+        run: |
+          python -m mini_ids.cli --help
+          python -m mini_ids.cli analyze --help
+
+      - name: Verify repository cleanliness
+        run: git diff --exit-code

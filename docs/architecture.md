@@ -270,6 +270,8 @@ The suite uses:
 
 The current verified baseline is 465 passing tests with 99% statement coverage, covering 951 of 958 production statements. Coverage is a regression signal, not proof of production security, correct thresholds for every environment, or freedom from false positives. See the [Testing Report](testing-report.md).
 
+The read-only GitHub Actions workflow is configured to run the same suite with a 95% coverage floor on Ubuntu and Python 3.11 through 3.13 for pushes and pull requests. It also compiles Python files, checks CLI help, and verifies repository cleanliness. GitHub-hosted success remains a remote result and is not established by local validation alone.
+
 ## Dependency Direction
 
 The implementation is layered around the normalized models, but it is not presented as a perfectly isolated formal layer system. In the following map, `A -> B` means module A imports module B:
@@ -342,7 +344,7 @@ Future entries are possibilities, not implemented commitments.
 | Addressing | IPv4 endpoint extraction; unsupported shapes retain partial normalized metadata | Expanded IPv6 handling |
 | Enrichment | None | Optional contextual enrichment |
 | State | Per-run in-memory rule state | Evaluated persistence only if a future use case requires it |
-| Automation | Local test and CLI commands | GitHub Actions CI |
+| Automation | Local commands plus configured GitHub Actions CI | Broader platform and security checks |
 
 No future item in this table is available through the current CLI.
 

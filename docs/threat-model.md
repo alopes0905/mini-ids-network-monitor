@@ -251,7 +251,7 @@ MITRE ATT&CK mappings provide investigation context only. `T1046` on a port-scan
 - A vulnerability, compromised package, incompatible release, or behavioral change in a dependency could affect parsing, configuration, output, or tests.
 - `requirements.txt` currently names dependencies without version pins or hashes.
 - A virtual environment isolates project packages from some system state but is not a security sandbox.
-- GitHub Actions CI, automated dependency scanning, and release provenance are not currently implemented.
+- GitHub Actions CI is configured for read-only tests on supported Python versions, but automated dependency scanning and release provenance are not implemented.
 
 No specific dependency vulnerability is asserted by this document; this is a general supply-chain exposure.
 
@@ -281,6 +281,7 @@ The following controls exist in the current implementation:
 - **Safe samples:** committed PCAPs are generated offline from documentation addresses and reserved example domains without raw application payloads.
 - **Repository exclusions:** arbitrary PCAPs, generated logs, and generated reports are ignored by Git; only reviewed sample PCAPs are allowed.
 - **Testing:** unit, boundary, filesystem, CLI, integration, and sample-safety tests provide regression coverage.
+- **Read-only CI configuration:** push and pull-request runs are limited to `contents: read` and require no repository secrets, live interfaces, or write permissions.
 - **Explicit outputs:** the CLI writes files only when the user supplies paths and does not invent automatic filenames.
 - **No automated response:** findings cannot directly block traffic or modify a firewall.
 
@@ -396,7 +397,7 @@ The following are possible future controls. None is currently implemented or pro
 - input and report hashing, signing, or provenance records;
 - sandboxed or isolated parsing for untrusted captures;
 - pinned dependencies, hashes, automated update review, and vulnerability scanning;
-- CI security and compatibility checks;
+- additional CI platform, dependency-security, and compatibility checks;
 - baseline-aware rules and cross-source correlation;
 - authorized endpoint, resolver, authentication, and service-log correlation;
 - optional live capture with explicit privilege and interface boundaries;

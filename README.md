@@ -1,5 +1,7 @@
 # Mini IDS / Network Security Monitor
 
+[![Tests](https://github.com/alopes0905/mini-ids-network-monitor/actions/workflows/tests.yml/badge.svg)](https://github.com/alopes0905/mini-ids-network-monitor/actions/workflows/tests.yml)
+
 Mini IDS is a lightweight defensive Python project for analyzing offline PCAP files. It converts raw packets into normalized metadata, runs stateful detection rules, produces structured alerts, and presents the result through Rich terminal output, JSONL event logs, traffic statistics, and a complete JSON analysis report.
 
 The project is designed for network-security learning and portfolio demonstration. It favors explicit rule semantics, testable module boundaries, reproducible synthetic traffic, and measured claims over production IDS complexity.
@@ -84,7 +86,7 @@ mini-ids-network-monitor/
 - Dependencies listed in `requirements.txt`
 - Scapy for offline PCAP reading and packet construction
 
-The current suite is verified on macOS with Python 3.13. The supported offline workflow does not access interfaces, transmit traffic, or require root privileges. Broader platform support is not claimed until it is exercised through CI.
+The current suite is verified locally on macOS with Python 3.13. The GitHub Actions workflow is configured for Python 3.11, 3.12, and 3.13 on Ubuntu. The supported offline workflow does not access interfaces, transmit traffic, or require root privileges. Remote workflow success must be confirmed on GitHub after the workflow is pushed.
 
 ## Installation
 
@@ -230,6 +232,14 @@ Current verified result: **465 tests passed** with **99% statement coverage** (9
 
 High statement coverage improves regression confidence; it does not prove production security, eliminate false positives, or establish suitability for every network. See the [Testing Report](docs/testing-report.md) for module results and known gaps.
 
+### Continuous Integration
+
+The [`Tests` workflow](.github/workflows/tests.yml) is configured to run on every push and pull request, with optional manual dispatch. Its read-only Ubuntu matrix covers Python 3.11, 3.12, and 3.13. Each matrix run installs `requirements.txt`, executes the full suite once with a 95% statement-coverage floor, compiles production code, tests, and scripts, checks both CLI help entry points, and verifies that validation did not modify tracked files.
+
+The existing sample-PCAP tests generate temporary samples and verify committed-sample parity, safe addressing, expected alerts, and the absence of packet transmission or capture APIs. Pip download caching is enabled through `actions/setup-python`. No hosted coverage service or coverage badge is configured; the badge at the top reports only the GitHub Actions workflow result.
+
+The workflow has been validated structurally and through its local commands. A successful GitHub-hosted run should not be claimed until the workflow is pushed and completes remotely.
+
 ## Documentation
 
 - [Reproducible Demo](docs/demo-scenario.md)
@@ -263,7 +273,7 @@ Use Mini IDS only with PCAP files you own or are explicitly authorized to inspec
 
 Near-term work remains clearly separate from implemented functionality:
 
-- Add GitHub Actions CI and a code-quality pass
+- Complete a focused code-quality pass
 - Evaluate optional live capture only after the offline workflow is stable
 - Consider later HTML reporting, IPv6 improvements, and performance benchmarks
 

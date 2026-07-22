@@ -1,6 +1,6 @@
 # Testing Report
 
-This report records the Mini IDS testing state after the Issue #22 safe sample-PCAP pass. It is a development snapshot, not a claim of production readiness or complete security validation.
+This report records the Mini IDS local testing baseline and the continuous-integration workflow configured in Issue #29. It is a development snapshot, not a claim of production readiness or complete security validation.
 
 ## Tools and Environment
 
@@ -29,6 +29,15 @@ Run the suite with a terminal coverage report:
 python3 -m pytest --cov=mini_ids --cov-report=term-missing
 ```
 
+Run the same coverage gate used by CI:
+
+```bash
+python3 -m pytest \
+  --cov=mini_ids \
+  --cov-report=term-missing \
+  --cov-fail-under=95
+```
+
 ## Current Results
 
 Results measured on 2026-07-21:
@@ -39,6 +48,24 @@ Results measured on 2026-07-21:
 - Covered statements: **951 of 958**
 
 Issue #27 established a 434-test, 99%-coverage baseline with complete JSON-report coverage. Issue #22 added 31 focused checks for deterministic generation, committed-file parity, safe addressing and domains, bounded payload-free packets, exact default-rule alerts, manifests, aggregation, report construction, and prohibited network APIs.
+
+## Continuous Integration
+
+The workflow at [`.github/workflows/tests.yml`](../.github/workflows/tests.yml) is configured for pushes, pull requests, and manual dispatch. It uses read-only repository permissions and one `ubuntu-latest` matrix job for Python 3.11, 3.12, and 3.13. Python 3.11 is the minimum because the current code uses `datetime.UTC`.
+
+Each matrix run is configured to:
+
+1. check out the repository with persisted Git credentials disabled;
+2. install Python with pip download caching keyed by `requirements.txt`;
+3. upgrade pip and install `requirements.txt`;
+4. run all tests once with statement coverage and `--cov-fail-under=95`;
+5. compile `mini_ids`, `tests`, and `scripts`;
+6. invoke application and `analyze` help;
+7. fail if validation changes tracked files.
+
+The full test invocation includes `tests/test_sample_pcaps.py`, which generates PCAPs in temporary directories and validates safe construction, committed-sample consistency, expected findings, and prohibited network APIs. CI does not regenerate tracked sample files, access live interfaces, transmit packets, require root privileges, reference repository secrets, or upload coverage to an external service.
+
+The job has a 10-minute timeout, and concurrency cancels an outdated run for the same workflow and Git reference. The workflow uses the maintained official `actions/checkout@v7` and `actions/setup-python@v6` actions. These commands and the workflow structure are validated locally; the first GitHub-hosted result remains pending until the workflow is pushed.
 
 ### Module Coverage
 
@@ -85,7 +112,7 @@ The coverage pass does not force tests for branches that Scapy normalizes away i
 
 The coverage command imports `mini_ids.cli` through `CliRunner`, so it does not execute the two module-dispatch statements under `if __name__ == "__main__"`. CLI commands and help behavior are covered through Typer without asserting terminal layout byte for byte.
 
-Features that do not exist yet are not tested: HTML/Markdown/CSV reports, live capture, packaging entry points, and CI workflows.
+Features that do not exist yet are not tested: HTML/Markdown/CSV reports, live capture, and packaging entry points. GitHub-hosted runner behavior cannot be executed by the local suite and must be confirmed from the remote workflow result.
 
 ## Limitations
 
@@ -103,5 +130,5 @@ Future v1.0 work should add focused tests alongside each new feature:
 - Alternate report-format consistency if HTML, Markdown, or CSV is added later
 - Larger authorized DNS datasets for threshold tuning and false-positive evaluation
 - Optional live-capture permission and platform boundaries without relying on public traffic
-- CI across supported Python versions
+- Additional operating-system coverage if broader platform support is adopted
 - Larger synthetic PCAP and performance checks after the functional contracts stabilize
